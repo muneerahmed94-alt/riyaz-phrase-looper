@@ -38,6 +38,25 @@ Developed by Muneer Ahmed Shaik.
 ### Saving
 - Click **↓ Save Session** (or `⌘S`) to write the JSON back directly to `sessions/` (Chrome with folder access) or download it as a file.
 - Section names, ranges, colours, and loop state are all saved.
+- **Rename a section** inline and press `Enter` to rename and auto-save in one step.
+
+---
+
+## Supported Audio Formats
+
+Verified with `HTMLAudioElement.canPlayType()` in Chrome on macOS:
+
+| Format | Extensions | Status |
+|--------|-----------|--------|
+| MPEG-4 Audio | `.m4a` `.mp4` | ✅ Supported |
+| MP3 | `.mp3` | ✅ Supported |
+| AAC | `.aac` | ✅ Supported |
+| Ogg Vorbis | `.ogg` `.oga` | ✅ Supported |
+| Ogg Opus | `.opus` | ✅ Supported |
+| FLAC | `.flac` | ✅ Supported |
+| WebM (Vorbis/Opus) | `.webm` `.weba` | ✅ Supported |
+| WAV | `.wav` | ✅ Works in practice |
+| CAF / AIFF | `.caf` `.aiff` `.aif` | ❌ Not supported in Chrome |
 
 ---
 
@@ -88,6 +107,7 @@ riyaz-phrase-looper/
 | `Space` | Play / Pause main track |
 | `Escape` | Stop all playback |
 | `⌘S` / `Ctrl+S` | Save session |
+| `Enter` | (in section name) Rename + auto-save |
 
 ---
 

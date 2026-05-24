@@ -520,7 +520,18 @@ header h1 {
  *   #3a6b2a / #5a8a40  forest green — save/add-section actions
  *
  * Section cards use a cream (#f7f0de) background with ochre left border
- * in the section's own colour, plus an inset outline for depth.
+ * coloured in the section's own hue, plus an inset outline for depth.
+ *
+ * Section play buttons are square-ish parchment buttons (#f7edd6) with a
+ * coloured border matching the section colour. When playing they fill solid.
+ * This replaces the original modern filled-circle style.
+ *
+ * SUPPORTED AUDIO FORMATS
+ * -----------------------
+ * Verified via HTMLAudioElement.canPlayType() in Chrome on macOS:
+ *   ✓ Probably  .m4a .mp3 .aac .ogg .oga .opus .flac .webm .weba .mp4
+ *   ~ Maybe     .wav  (works in practice despite "maybe" rating)
+ *   ✗ Removed   .caf .aiff .aif  (not supported in Chrome)
  *
  * SECTION NAME EDITING
  * --------------------
