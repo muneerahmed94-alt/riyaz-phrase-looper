@@ -500,6 +500,21 @@ header h1 {
  *   'right' — drag the right handle (≤10 px from right edge) → move end
  *   'move'  — drag anywhere inside the selection → slide entire range
  *
+ * During any active drag the overlay switches to a lighter style so the
+ * waveform underneath stays readable:
+ *   - outside-dim drops from 0.55 → 0.25 opacity
+ *   - selection fill drops to near-transparent (~7% alpha)
+ *   - border becomes a thin (1px) dashed line instead of solid 2px
+ *
+ * MAGNIFIER
+ * ---------
+ * When dragging a left or right edge handle, a fixed-position tooltip
+ * (#magnifier) appears above the cursor showing a 5× zoomed strip of
+ * the waveform (drawn via drawImage from the section's mini-wave-canvas)
+ * centred on the drag position. A centre hairline and live time label
+ * help nail the exact cut point. The tooltip is hidden on mouseup /
+ * mouseleave. Constants: MAG_W=200px, MAG_H=60px, MAG_ZOOM=5.
+ *
  * VISUAL THEME
  * ------------
  * Vintage Hindustani aesthetic — mirrors palta-alankar-maker for visual

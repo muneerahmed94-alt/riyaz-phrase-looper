@@ -19,8 +19,9 @@ Developed by Muneer Ahmed Shaik.
 - A full-track waveform is shown at the top for orientation and seeking.
 - Click **+ Add Section** to create a new section card. Each card shows a mini waveform of the entire track.
 - **Draw a selection** by clicking and dragging anywhere on the mini waveform.
-- **Resize** by dragging the left or right edge handle (cursor changes to `↔` near edges).
+- **Resize** by dragging the left or right edge handle (cursor changes to `↔` near edges). A **magnifier tooltip** appears above the cursor showing a 5× zoomed strip of the waveform around the edge, with a live time label — making it easy to nail the exact cut point.
 - **Move** the whole selection by dragging anywhere inside it (cursor changes to `✋`).
+- During any drag the selection overlay becomes transparent so the waveform underneath stays readable.
 - Sections are colour-coded and the selection is always visible on the waveform.
 
 ### Playback
