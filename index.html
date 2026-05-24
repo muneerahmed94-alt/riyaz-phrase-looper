@@ -394,11 +394,20 @@ header h1 { font-size: 16px; font-weight: 700; color: #e94560; white-space: nowr
  *   'right' — drag the right handle (≤10 px from right edge) → move end
  *   'move'  — drag anywhere inside the selection → slide entire range
  *
+ * SECTION NAME EDITING
+ * --------------------
+ * Each section card has an inline text input for the name.
+ * - Typing and leaving the field (onchange) updates the in-memory name.
+ * - Pressing Enter confirms the name, triggers an auto-save of the full
+ *   session to disk (sessions/<name>.json via File System Access API),
+ *   and blurs the input.
+ *
  * KEYBOARD SHORTCUTS
  * ------------------
- *   Space   → play / pause main track
- *   Escape  → stop all playback
- *   ⌘S / Ctrl+S → save current session
+ *   Space        → play / pause main track
+ *   Escape       → stop all playback
+ *   ⌘S / Ctrl+S  → save current session
+ *   Enter        → (in section name field) save name + auto-save session
  */
 
 // ═══════════════════════════════════════════════════
@@ -874,7 +883,9 @@ function buildSectionCard(s) {
     <div class="card-header">
       <input type="checkbox" class="sec-checkbox" id="chk-${s.id}" onchange="onCheckboxChange(${s.id}, this.checked)">
       <button class="sec-play-btn" id="sec-play-${s.id}" onclick="toggleSectionPlay(${s.id})">▶</button>
-      <input class="name-input" value="${s.name}" id="sec-name-${s.id}" onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()">
+      <input class="name-input" value="${s.name}" id="sec-name-${s.id}"
+        onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()"
+        onkeydown="if(event.key==='Enter'){sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar();saveSession();this.blur();}">
       <span class="range-label" id="sec-range-${s.id}">drag waveform to set range</span>
       <button class="loop-btn on" id="sec-loop-${s.id}" onclick="toggleSectionLoop(${s.id})">↺ Loop</button>
       <button class="del-btn" onclick="deleteSection(${s.id})">×</button>

@@ -4,7 +4,7 @@
   "sections": [
     {
       "id": 1,
-      "name": "Section 1",
+      "name": "1-SGMPN(S)",
       "start": 0,
       "end": 9.2,
       "color": "#e74c3c",
@@ -45,7 +45,7 @@
     {
       "id": 6,
       "name": "Section 6",
-      "start": 57.64,
+      "start": 57.43,
       "end": 73.23,
       "color": "#3b82f6",
       "loop": true
