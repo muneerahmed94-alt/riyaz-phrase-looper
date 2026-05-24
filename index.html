@@ -373,10 +373,10 @@ header h1 {
       <div id="drop-zone" onclick="document.getElementById('file-input-start').click()">
         <div class="drop-icon">🎵</div>
         <p><strong>Drop audio here</strong> for a new session</p>
-        <p class="sub">.m4a · .mp3 · .wav · .aac · .ogg · .opus · .flac · .aiff · .caf · .webm</p>
+        <p class="sub">.m4a · .mp3 · .wav · .aac · .ogg · .opus · .flac · .webm · .mp4</p>
         <button id="browse-btn" onclick="event.stopPropagation(); document.getElementById('file-input-start').click()">Browse file</button>
       </div>
-      <input type="file" id="file-input-start" accept=".m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4,.caf,.aiff,.aif" style="display:none">
+      <input type="file" id="file-input-start" accept=".m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4" style="display:none">
     </div>
 
   </div>
@@ -386,7 +386,7 @@ header h1 {
 <header>
   <h1>Riyaz - Phrase Looper</h1>
   <button class="hdr-btn" id="open-audio-btn" onclick="document.getElementById('file-input').click()">Open Audio</button>
-  <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4,.caf,.aiff,.aif" style="display:none">
+  <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.flac,.weba,.webm,.mp4" style="display:none">
   <button class="hdr-btn" id="back-btn" onclick="showStartScreen()" style="background:#252545;color:#aaa;border:1px solid #3a3a5a;">← Sessions</button>
   <button class="hdr-btn" id="save-session-btn" disabled onclick="saveSession()">↓ Save Session</button>
   <span id="session-name-display"></span>
@@ -446,7 +446,8 @@ header h1 {
  * -----------------------------------------------
  *   index.html          ← this file
  *   audio/              ← audio files (.m4a .mp3 .wav .aac .ogg .oga .opus
- *                                      .flac .weba .webm .mp4 .caf .aiff .aif)
+ *                                      .flac .weba .webm .mp4)
+ *                         (.caf .aiff .aif not supported in Chrome)
  *   sessions/           ← JSON session files (one per audio file)
  *
  * SESSION JSON FORMAT
@@ -766,7 +767,7 @@ async function reselectAudioForSession() {
     return;
   }
   try {
-    const [fh] = await window.showOpenFilePicker({ types: [{ description: 'Audio files', accept: { 'audio/*': ['.m4a','.mp3','.wav','.aac','.ogg','.oga','.opus','.flac','.weba','.webm','.mp4','.caf','.aiff','.aif'] } }] });
+    const [fh] = await window.showOpenFilePicker({ types: [{ description: 'Audio files', accept: { 'audio/*': ['.m4a','.mp3','.wav','.aac','.ogg','.oga','.opus','.flac','.weba','.webm','.mp4'] } }] });
     const file = await fh.getFile();
     selectedSession._audioFile = file;
     // Update session JSON with new relative path (assume audio/ folder)
