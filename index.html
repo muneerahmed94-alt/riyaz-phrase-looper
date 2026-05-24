@@ -1069,7 +1069,8 @@ function buildSectionCard(s) {
         const t0 = clientXToTime(s.id, dragState[s.id].x0);
         s.start = Math.min(t0, t); s.end = Math.max(t0, t);
       }
-      drawSectionOverlay(s); updateRangeLabel(s);
+      drawSectionOverlay(s, true); updateRangeLabel(s);
+      updateMagnifier(s, e.clientX);
     } else {
       const mode = getEdgeMode(e.clientX);
       wrap.style.cursor = mode === 'left' || mode === 'right' ? 'ew-resize'
@@ -1084,7 +1085,7 @@ function buildSectionCard(s) {
     dragState[s.id] = { dragging: true, mode, x0: e.clientX, lastX: e.clientX };
     if (mode === 'new') { s.start = clientXToTime(s.id, e.clientX); s.end = s.start; }
     wrap.style.cursor = mode === 'move' ? 'grabbing' : mode === 'left' || mode === 'right' ? 'ew-resize' : 'crosshair';
-    drawSectionOverlay(s);
+    drawSectionOverlay(s, true);
     e.preventDefault();
   });
 
@@ -1097,12 +1098,13 @@ function buildSectionCard(s) {
       s.start = Math.min(t0, t); s.end = Math.max(t0, t);
       if (s.end - s.start < 0.05) { s.start = null; s.end = null; }
     }
-    drawSectionOverlay(s); updateRangeLabel(s);
+    drawSectionOverlay(s, false); updateRangeLabel(s);
     document.getElementById(`wave-hint-${s.id}`).style.opacity = s.start !== null ? '0' : '1';
     wrap.style.cursor = 'crosshair';
+    hideMagnifier();
   };
   wrap.addEventListener('mouseup', fin);
-  wrap.addEventListener('mouseleave', e => { fin(e); wrap.style.cursor = 'crosshair'; });
+  wrap.addEventListener('mouseleave', e => { fin(e); wrap.style.cursor = 'crosshair'; hideMagnifier(); });
 
   wrap.addEventListener('click', e => {
     if (Math.abs(e.clientX - (dragState[s.id].x0 || e.clientX)) > 4) return;
@@ -1124,29 +1126,36 @@ function drawSectionWaveform(s) {
 }
 const HANDLE_HIT = 10; // px either side of edge counts as handle zone
 
-function drawSectionOverlay(s) {
+// isDragging: when true, reduce opacity so waveform is readable underneath
+function drawSectionOverlay(s, isDragging) {
   const canvas = document.getElementById(`mini-overlay-${s.id}`); if (!canvas) return;
   canvas.width = canvas.offsetWidth||canvas.parentElement.offsetWidth; canvas.height = 68;
   const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
   if (!duration||s.start===null||s.end===null) return;
   const w=canvas.width, x1=(s.start/duration)*w, x2=(s.end/duration)*w, selW=Math.max(2,x2-x1);
 
-  // Dim outside
-  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,x1,68); ctx.fillRect(x2,0,w-x2,68);
+  // Dim outside — lighter during drag so waveform stays visible
+  const dimAlpha = isDragging ? 0.25 : 0.55;
+  ctx.fillStyle=`rgba(0,0,0,${dimAlpha})`; ctx.fillRect(0,0,x1,68); ctx.fillRect(x2,0,w-x2,68);
 
-  // Selection fill
-  ctx.fillStyle=s.color+'28'; ctx.fillRect(x1,0,selW,68);
+  // Selection fill — nearly transparent during drag
+  ctx.fillStyle = isDragging ? s.color+'12' : s.color+'28';
+  ctx.fillRect(x1,0,selW,68);
 
-  // Selection border
-  ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.strokeRect(x1,1,selW,66);
+  // Selection border — thin dashed during drag, solid otherwise
+  ctx.strokeStyle=s.color;
+  ctx.lineWidth = isDragging ? 1 : 2;
+  if (isDragging) { ctx.setLineDash([4,3]); } else { ctx.setLineDash([]); }
+  ctx.strokeRect(x1,1,selW,66);
+  ctx.setLineDash([]);
 
-  // Left resize handle — solid bar + arrow hint
-  ctx.fillStyle=s.color+'ee'; ctx.fillRect(x1,0,4,68);
+  // Left resize handle
+  ctx.fillStyle=s.color+(isDragging?'99':'ee'); ctx.fillRect(x1,0,4,68);
   ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='bold 11px sans-serif'; ctx.textBaseline='middle';
   if(selW>30){ ctx.fillText('◀',x1+6,34); }
 
   // Right resize handle
-  ctx.fillStyle=s.color+'ee'; ctx.fillRect(x2-4,0,4,68);
+  ctx.fillStyle=s.color+(isDragging?'99':'ee'); ctx.fillRect(x2-4,0,4,68);
   if(selW>30){ ctx.fillText('▶',x2-16,34); }
 
   // Time labels
@@ -1336,8 +1345,86 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.code==='KeyS'){e.preventDefault();if(audioBuffer&&sections.length)saveSession();}
 });
 
+// ═══════════════════════════════════════════════════
+// Magnifier — zoomed waveform tooltip shown while dragging edges/move
+// Shows a 5× zoomed strip of the waveform centred on the drag position
+// ═══════════════════════════════════════════════════
+const MAG_W = 200, MAG_H = 60, MAG_ZOOM = 5;
+
+function updateMagnifier(s, clientX) {
+  if (!audioBuffer || !dragState[s.id].dragging) return;
+  const mode = dragState[s.id].mode;
+
+  // Only show for edge drags (not whole-section move, not new selection)
+  if (mode !== 'left' && mode !== 'right') { hideMagnifier(); return; }
+
+  const waveCanvas = document.getElementById(`mini-wave-${s.id}`);
+  if (!waveCanvas) return;
+
+  const wrap = document.getElementById(`mini-wrap-${s.id}`);
+  const wrapRect = wrap.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (clientX - wrapRect.left) / wrapRect.width));
+  const focusTime = ratio * duration; // time at drag cursor
+
+  // Draw zoomed strip onto mag canvas
+  const magCanvas = document.getElementById('mag-canvas');
+  const mCtx = magCanvas.getContext('2d');
+  mCtx.clearRect(0, 0, MAG_W, MAG_H);
+  mCtx.fillStyle = '#1a0a02';
+  mCtx.fillRect(0, 0, MAG_W, MAG_H);
+
+  // The zoomed window covers MAG_W/MAG_ZOOM pixels worth of time in the source
+  const srcSpanPx = MAG_W / MAG_ZOOM; // how many source px the window spans
+  const srcCenterPx = ratio * waveCanvas.width;
+  const srcX0 = srcCenterPx - srcSpanPx / 2;
+
+  // Draw the zoomed section of the waveform
+  mCtx.drawImage(
+    waveCanvas,
+    srcX0, 0, srcSpanPx, 68,   // source rect
+    0, 0, MAG_W, MAG_H          // dest rect
+  );
+
+  // Centre line
+  mCtx.strokeStyle = 'rgba(201,150,62,0.5)'; mCtx.lineWidth = 1;
+  mCtx.beginPath(); mCtx.moveTo(MAG_W/2, 0); mCtx.lineTo(MAG_W/2, MAG_H); mCtx.stroke();
+
+  // Time label
+  document.getElementById('mag-label').textContent = fmtTime(focusTime);
+
+  // Position tooltip above cursor, centred horizontally
+  const mag = document.getElementById('magnifier');
+  const magH = mag.offsetHeight || 80;
+  let left = clientX - MAG_W / 2;
+  let top = wrapRect.top - magH - 10 + window.scrollY;
+  // Keep within viewport
+  left = Math.max(8, Math.min(left, window.innerWidth - MAG_W - 8));
+  if (top < 8) top = wrapRect.bottom + 10 + window.scrollY;
+
+  mag.style.left = left + 'px';
+  mag.style.top = top + 'px';
+  mag.style.display = 'block';
+}
+
+function hideMagnifier() {
+  document.getElementById('magnifier').style.display = 'none';
+}
+
 // Boot
 initStartScreen();
 </script>
+<div id="magnifier" style="
+  display:none; position:fixed; z-index:500; pointer-events:none;
+  background:#1a0a02; border:2px solid #c9963e; border-radius:8px;
+  box-shadow:0 4px 16px rgba(90,40,10,0.4);
+  overflow:hidden; width:200px;
+">
+  <canvas id="mag-canvas" width="200" height="60"></canvas>
+  <div id="mag-label" style="
+    text-align:center; font-size:11px; font-family:'Poppins',sans-serif;
+    font-weight:600; color:#c9963e; padding:3px 0 4px;
+    border-top:1px solid #3a1a08; background:#120800;
+  "></div>
+</div>
 </body>
 </html>
