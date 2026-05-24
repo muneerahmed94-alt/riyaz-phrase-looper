@@ -676,7 +676,6 @@ async function refreshSessionsList() {
     const card = document.createElement('div');
     card.className = 'session-card';
     card.innerHTML = `
-      <div class="session-card-icon">🎼</div>
       <div class="session-card-info">
         <div class="session-card-name">${entry.label}</div>
         <div class="session-card-meta">${entry.data.fileName || ''} · ${secs.length} section${secs.length !== 1 ? 's' : ''}</div>
@@ -694,7 +693,7 @@ async function onSessionCardClick(cardEl, entry) {
 
   const info = document.getElementById('selected-session-info');
   info.classList.add('visible');
-  document.getElementById('sel-sess-title').textContent = '🎼 ' + entry.label;
+  document.getElementById('sel-sess-title').textContent = entry.label;
 
   // Resolve audio and open immediately
   await resolveSessionAudio(entry, true);
@@ -729,7 +728,7 @@ async function resolveSessionAudio(entry, autoOpen) {
   }
 
   // File not found — show error box with reselect option
-  document.getElementById('sel-sess-title').textContent = '🎼 ' + entry.label;
+  document.getElementById('sel-sess-title').textContent = entry.label;
   statusEl.className = 'err';
   statusEl.textContent = `✗ Audio not found: ${audioFileName}`;
   reselectBtn.classList.add('visible');
