@@ -1,0 +1,54 @@
+{
+  "fileName": "Jog-Intro-Alaap.m4a",
+  "audioPath": "audio/Jog-Intro-Alaap.m4a",
+  "sections": [
+    {
+      "id": 1,
+      "name": "Section 1",
+      "start": 0,
+      "end": 9.2,
+      "color": "#e74c3c",
+      "loop": true
+    },
+    {
+      "id": 2,
+      "name": "Section 2",
+      "start": 8.8,
+      "end": 19.9,
+      "color": "#e67e22",
+      "loop": true
+    },
+    {
+      "id": 3,
+      "name": "Section 3",
+      "start": 20.5,
+      "end": 34,
+      "color": "#eab308",
+      "loop": true
+    },
+    {
+      "id": 4,
+      "name": "Section 4",
+      "start": 34.3,
+      "end": 44.8,
+      "color": "#22c55e",
+      "loop": true
+    },
+    {
+      "id": 5,
+      "name": "Section 5",
+      "start": 45.2,
+      "end": 56.6,
+      "color": "#14b8a6",
+      "loop": true
+    },
+    {
+      "id": 6,
+      "name": "Section 6",
+      "start": 57.64,
+      "end": 73.23,
+      "color": "#3b82f6",
+      "loop": true
+    }
+  ]
+}

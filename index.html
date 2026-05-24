@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riyaz - Phrase Looper</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #12121f; color: #eee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  padding: 10px 16px; background: #1a1a30;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid #2a2a4a; flex-shrink: 0;
+}
+header h1 { font-size: 16px; font-weight: 700; color: #e94560; white-space: nowrap; margin-right: 4px; }
+.hdr-btn {
+  border: none; cursor: pointer; padding: 6px 13px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; white-space: nowrap; transition: background 0.15s, opacity 0.15s;
+}
+.hdr-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+#open-audio-btn { background: #e94560; color: #fff; }
+#open-audio-btn:hover { background: #c73652; }
+#save-session-btn { background: #252545; color: #aaa; border: 1px solid #3a3a5a; }
+#save-session-btn:hover:not(:disabled) { background: #32326a; }
+#save-session-btn:not(:disabled) { color: #4ade80; border-color: #1e5c3a; }
+#file-name { font-size: 12px; color: #555; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#session-name-display { font-size: 12px; color: #3b82f6; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Main waveform ── */
+#track-section { flex-shrink: 0; background: #0d0d1a; border-bottom: 2px solid #2a2a4a; }
+#main-waveform-wrap { position: relative; cursor: pointer; height: 90px; }
+#main-waveform-canvas { display: block; width: 100%; height: 90px; }
+#main-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: rgba(255,255,255,0.85); pointer-events: none; display: none; }
+
+/* ── Transport ── */
+#transport {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px; background: #1a1a30;
+  border-bottom: 1px solid #2a2a4a; flex-shrink: 0;
+}
+.t-btn {
+  background: #252545; color: #ddd; border: none;
+  padding: 6px 13px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; display: flex; align-items: center; gap: 5px;
+  transition: background 0.15s; white-space: nowrap;
+}
+.t-btn:hover { background: #32326a; }
+.t-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.t-btn.playing { background: #e94560; color: white; }
+#time-display { font-size: 12px; color: #888; font-variant-numeric: tabular-nums; min-width: 120px; }
+#add-section-btn {
+  margin-left: auto; background: #1e5c3a; color: #4ade80; border: none;
+  padding: 7px 15px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 600; white-space: nowrap; transition: background 0.15s;
+}
+#add-section-btn:hover { background: #276b46; }
+#add-section-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Sections scroll ── */
+#sections-area { flex: 1; overflow-y: auto; padding: 12px 14px 4px; display: flex; flex-direction: column; gap: 10px; }
+#no-sections { text-align: center; color: #444; font-size: 14px; margin-top: 30px; line-height: 1.8; }
+#no-sections strong { color: #666; }
+
+/* ── Section card ── */
+.section-card {
+  background: #1a1a30; border: 1.5px solid #2a2a4a; border-left: 4px solid var(--color);
+  border-radius: 8px; overflow: hidden; transition: box-shadow 0.15s;
+}
+.section-card.active-playing { border-color: var(--color); box-shadow: 0 0 0 1px var(--color) inset; }
+.section-card.group-playing { box-shadow: 0 0 0 2px #a855f7 inset; }
+.card-header { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #2a2a4a; }
+.sec-checkbox {
+  appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border-radius: 4px;
+  border: 2px solid #444; background: transparent; cursor: pointer; flex-shrink: 0;
+  position: relative; transition: border-color 0.15s, background 0.15s;
+}
+.sec-checkbox:checked { background: var(--color); border-color: var(--color); }
+.sec-checkbox:checked::after { content: '✓'; position: absolute; top: -2px; left: 1px; font-size: 11px; color: white; font-weight: 700; }
+.sec-checkbox:hover { border-color: var(--color); }
+.sec-play-btn {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--color); border: none; color: white;
+  cursor: pointer; font-size: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: opacity 0.15s;
+}
+.sec-play-btn:hover { opacity: 0.8; }
+.name-input { background: transparent; border: none; color: #eee; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; outline: none; }
+.name-input:focus { border-bottom: 1px solid var(--color); }
+.range-label { font-size: 11px; color: #666; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.loop-btn {
+  background: transparent; border: 1px solid #444; color: #777; padding: 2px 7px;
+  border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; transition: all 0.15s;
+}
+.loop-btn.on { border-color: #f39c12; color: #f39c12; background: rgba(243,156,18,0.1); }
+.del-btn { background: transparent; border: none; color: #444; cursor: pointer; font-size: 17px; line-height: 1; padding: 0 2px; transition: color 0.15s; }
+.del-btn:hover { color: #e94560; }
+.mini-wave-wrap { position: relative; height: 68px; cursor: crosshair; user-select: none; background: #0d0d1a; }
+.mini-wave-canvas { display: block; width: 100%; height: 68px; }
+.mini-overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.mini-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: rgba(255,255,255,0.75); pointer-events: none; display: none; }
+.wave-hint { position: absolute; bottom: 4px; right: 8px; font-size: 10px; color: #444; pointer-events: none; }
+
+/* ── Group bar ── */
+#group-bar { flex-shrink: 0; background: #1a1228; border-top: 2px solid #a855f7; padding: 9px 16px; display: none; align-items: center; gap: 12px; }
+#group-bar.visible { display: flex; }
+#group-play-btn {
+  background: #a855f7; color: white; border: none; width: 34px; height: 34px; border-radius: 50%;
+  cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+#group-play-btn.playing { background: #7c3aed; }
+#group-info { flex: 1; min-width: 0; }
+#group-label { font-size: 13px; font-weight: 600; color: #c084fc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#group-progress { font-size: 11px; color: #7c5fa0; margin-top: 1px; font-variant-numeric: tabular-nums; }
+#group-loop-btn { background: transparent; border: 1px solid #7c3aed; color: #a855f7; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+#group-loop-btn.on { background: rgba(168,85,247,0.15); }
+#group-clear-btn { background: transparent; border: none; color: #555; cursor: pointer; font-size: 12px; padding: 4px 6px; white-space: nowrap; }
+#group-clear-btn:hover { color: #e94560; }
+
+/* ═══════════════════════════════════════
+   START SCREEN
+═══════════════════════════════════════ */
+#start-screen {
+  position: fixed; inset: 0; z-index: 100; background: #0e0e1c;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#start-screen.hidden { display: none; }
+#start-header { padding: 20px 28px 16px; border-bottom: 1px solid #2a2a4a; display: flex; align-items: baseline; gap: 14px; flex-shrink: 0; }
+#start-header h1 { font-size: 22px; font-weight: 800; color: #e94560; }
+#start-header span { font-size: 13px; color: #555; }
+#start-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Sessions panel */
+#sessions-panel { width: 300px; flex-shrink: 0; border-right: 1px solid #2a2a4a; display: flex; flex-direction: column; overflow: hidden; }
+#sessions-panel-header { padding: 14px 18px 10px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#sessions-panel-header h2 { font-size: 13px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.8px; }
+#sessions-empty { padding: 20px 8px; text-align: center; color: #444; font-size: 13px; line-height: 1.7; }
+#sessions-empty strong { color: #666; }
+
+/* Grant access button — always visible in panel until access granted */
+#grant-area {
+  flex-shrink: 0;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  border-bottom: 1px solid #2a2a4a;
+}
+#grant-area p { font-size: 11px; color: #555; line-height: 1.5; }
+#grant-btn {
+  background: #e94560; color: white; border: none;
+  padding: 9px 14px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; font-weight: 600; width: 100%; text-align: center;
+  transition: background 0.15s;
+}
+#grant-btn:hover { background: #c73652; }
+#grant-area.hidden { display: none; }
+
+#sessions-list { flex: 1; overflow-y: auto; padding: 4px 10px 14px; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+
+.session-card {
+  background: #1a1a30; border: 1px solid #2a2a4a; border-radius: 8px;
+  padding: 11px 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  display: flex; align-items: center; gap: 10px;
+}
+.session-card:hover { background: #20203a; border-color: #3b82f6; }
+.session-card.active { border-color: #3b82f6; background: #1a2540; }
+.session-card-icon { font-size: 20px; flex-shrink: 0; }
+.session-card-info { flex: 1; min-width: 0; }
+.session-card-name { font-size: 14px; font-weight: 600; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-card-meta { font-size: 11px; color: #555; margin-top: 2px; }
+.session-card-dots { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
+.session-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* New session / drop panel */
+#new-session-panel { flex: 1; display: flex; flex-direction: column; padding: 22px 24px; gap: 14px; overflow: hidden; }
+#new-session-panel h2 { font-size: 13px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.8px; flex-shrink: 0; }
+
+/* Selected session info box */
+#selected-session-info {
+  background: #1a1a30; border: 1px solid #2a2a4a; border-radius: 10px;
+  padding: 14px 16px; flex-shrink: 0; display: none; gap: 4px; flex-direction: column;
+}
+#selected-session-info.visible { display: flex; }
+#sel-sess-title { font-size: 14px; font-weight: 700; color: #3b82f6; }
+#sel-sess-audio-status { font-size: 12px; margin-top: 2px; }
+#sel-sess-audio-status.ok { color: #4ade80; }
+#sel-sess-audio-status.warn { color: #f59e0b; }
+#sel-sess-audio-status.err { color: #f87171; }
+#sel-sess-reselect-btn {
+  margin-top: 4px; align-self: flex-start;
+  background: transparent; color: #f59e0b; border: 1px solid #78350f;
+  padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  display: none;
+}
+#sel-sess-reselect-btn.visible { display: inline-block; }
+
+/* Drop zone */
+#drop-zone {
+  flex: 1; border: 2px dashed #2a2a4a; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; transition: border-color 0.2s, background 0.2s; min-height: 160px;
+}
+#drop-zone:hover, #drop-zone.drag-over { border-color: #e94560; background: rgba(233,69,96,0.04); }
+.drop-icon { font-size: 40px; transition: transform 0.2s; }
+#drop-zone.drag-over .drop-icon { transform: scale(1.1); }
+#drop-zone p { font-size: 14px; color: #666; }
+#drop-zone p strong { color: #999; }
+#drop-zone .sub { font-size: 11px; color: #444; }
+#browse-btn {
+  background: #252545; color: #aaa; border: 1px solid #3a3a5a;
+  padding: 7px 18px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.15s;
+}
+#browse-btn:hover { background: #32326a; color: #eee; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #252545; color: #eee; padding: 8px 18px; border-radius: 20px;
+  font-size: 13px; pointer-events: none; opacity: 0; transition: opacity 0.25s;
+  z-index: 300; border: 1px solid #3a3a6a;
+}
+#toast.show { opacity: 1; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0d0d1a; }
+::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ START SCREEN ═══ -->
+<div id="start-screen">
+  <div id="start-header">
+    <h1>🎵 Riyaz - Phrase Looper</h1>
+  </div>
+  <div id="start-body">
+
+    <div id="sessions-panel">
+      <div id="sessions-panel-header">
+        <h2>Sessions</h2>
+      </div>
+
+      <div id="grant-area">
+        <button id="grant-btn" onclick="grantAccess()">📂 Grant access to riyaz-phrase-looper</button>
+        <p>One-time: select the <strong>riyaz-phrase-looper</strong> folder. Sessions and audio load automatically after that.</p>
+      </div>
+
+      <div id="sessions-list">
+        <div id="sessions-empty" style="display:none">
+          <strong>No sessions yet.</strong><br>
+          Drop an audio file to create one.
+        </div>
+      </div>
+    </div>
+
+    <div id="new-session-panel">
+      <h2>Open Audio</h2>
+
+      <!-- Only shown when audio file can't be found -->
+      <div id="selected-session-info">
+        <div id="sel-sess-title"></div>
+        <div id="sel-sess-audio-status"></div>
+        <button id="sel-sess-reselect-btn" onclick="reselectAudioForSession()">📂 Locate audio file…</button>
+      </div>
+
+      <div id="drop-zone" onclick="document.getElementById('file-input-start').click()">
+        <div class="drop-icon">🎵</div>
+        <p><strong>Drop audio here</strong> for a new session</p>
+        <p class="sub">.m4a · .mp3 · .wav · .aac</p>
+        <button id="browse-btn" onclick="event.stopPropagation(); document.getElementById('file-input-start').click()">Browse file</button>
+      </div>
+      <input type="file" id="file-input-start" accept="audio/*,.m4a" style="display:none">
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<header>
+  <h1>🎵 Riyaz - Phrase Looper</h1>
+  <button class="hdr-btn" id="open-audio-btn" onclick="document.getElementById('file-input').click()">Open Audio</button>
+  <input type="file" id="file-input" accept="audio/*,.m4a" style="display:none">
+  <button class="hdr-btn" id="back-btn" onclick="showStartScreen()" style="background:#252545;color:#aaa;border:1px solid #3a3a5a;">← Sessions</button>
+  <button class="hdr-btn" id="save-session-btn" disabled onclick="saveSession()">↓ Save Session</button>
+  <span id="session-name-display"></span>
+  <span id="file-name">No file loaded</span>
+</header>
+
+<div id="track-section">
+  <div id="main-waveform-wrap">
+    <canvas id="main-waveform-canvas"></canvas>
+    <div id="main-playhead"></div>
+  </div>
+</div>
+
+<div id="transport">
+  <button class="t-btn" id="main-play-btn" disabled onclick="toggleMainPlay()">▶ Play</button>
+  <button class="t-btn" id="main-stop-btn" disabled onclick="stopAll()">■ Stop</button>
+  <span id="time-display">0:00.0 / 0:00.0</span>
+  <button id="add-section-btn" disabled onclick="addSection()">+ Add Section</button>
+</div>
+
+<div id="sections-area">
+  <div id="no-sections">
+    Click <strong>+ Add Section</strong> to create a practice section.<br>
+    Drag on the section waveform to select the range you want to loop.<br>
+    Check multiple sections to practice them together as a group.
+  </div>
+</div>
+
+<div id="group-bar">
+  <button id="group-play-btn" onclick="toggleGroupPlay()">▶</button>
+  <div id="group-info">
+    <div id="group-label"></div>
+    <div id="group-progress"></div>
+  </div>
+  <button id="group-loop-btn" class="on" onclick="toggleGroupLoop()">↺ Loop group</button>
+  <button id="group-clear-btn" onclick="clearGroupSelection()">✕ Clear selection</button>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="session-file-input" accept=".json" style="display:none">
+
+<script>
+/**
+ * ╔══════════════════════════════════════════════════════════════════════╗
+ * ║                  RIYAZ — PHRASE LOOPER                              ║
+ * ║                  Single-file web app, no build step                 ║
+ * ╚══════════════════════════════════════════════════════════════════════╝
+ *
+ * PURPOSE
+ * -------
+ * Practice tool for Indian classical music (harmonium / vocal).
+ * A teacher records or shares a phrase file (.m4a etc.). The student opens
+ * it here, marks named sections on a waveform, and loops each section
+ * independently — or groups several sections and loops them in sequence.
+ *
+ * FOLDER LAYOUT (expected siblings to index.html)
+ * -----------------------------------------------
+ *   index.html          ← this file
+ *   audio/              ← audio files (.m4a, .mp3, …)
+ *   sessions/           ← JSON session files (one per audio file)
+ *
+ * SESSION JSON FORMAT
+ * -------------------
+ *   {
+ *     "fileName":  "Jog-Intro-Alaap.m4a",   // display name
+ *     "audioPath": "audio/Jog-Intro-Alaap.m4a",  // relative to project root
+ *     "sections": [
+ *       { "id": 1, "name": "Intro", "start": 0.0, "end": 9.2,
+ *         "color": "#e74c3c", "loop": true },
+ *       ...
+ *     ]
+ *   }
+ *
+ * FILE SYSTEM ACCESS (Chrome only)
+ * ---------------------------------
+ * The app uses the File System Access API (window.showDirectoryPicker)
+ * to read the project folder directly from disk.  The directory handle is
+ * persisted in IndexedDB (db: riyaz-looper-v3) so subsequent page loads
+ * require only a single "Re-grant access" click (browser security requirement
+ * after a full restart) rather than picking the folder again.
+ *
+ * AUDIO ENGINE
+ * ------------
+ * All playback uses the Web Audio API (AudioContext + AudioBufferSourceNode).
+ * Three independent playback modes share one AudioContext:
+ *
+ *   1. Main track    — plays the full file from any seek position.
+ *   2. Single section — plays one section's [start, end] range, optionally
+ *                       looping (re-creates the SourceNode on each loop to
+ *                       avoid the Web Audio loop-glitch at boundary).
+ *   3. Group playback — plays a user-selected set of sections in chronological
+ *                       order, advancing automatically, with optional loop-back.
+ *
+ * Only one mode is active at a time; starting any mode stops the others.
+ *
+ * WAVEFORM RENDERING
+ * ------------------
+ * Peak data is computed once per canvas width from the raw PCM buffer
+ * (channel 0) and drawn as min/max bars with a colour gradient.
+ * Each section card has:
+ *   - mini-wave-canvas   : static waveform (redrawn only on resize)
+ *   - mini-overlay-canvas: selection box + handles, redrawn on every drag
+ *   - mini-playhead      : absolutely-positioned div animated in rAF loop
+ *
+ * SECTION INTERACTION (drag modes)
+ * ----------------------------------
+ *   'new'   — click & drag on empty area  → draw a fresh selection
+ *   'left'  — drag the left handle (≤10 px from left edge)  → move start
+ *   'right' — drag the right handle (≤10 px from right edge) → move end
+ *   'move'  — drag anywhere inside the selection → slide entire range
+ *
+ * KEYBOARD SHORTCUTS
+ * ------------------
+ *   Space   → play / pause main track
+ *   Escape  → stop all playback
+ *   ⌘S / Ctrl+S → save current session
+ */
+
+// ═══════════════════════════════════════════════════
+// IndexedDB helpers — persist directory handle across page loads
+// ═══════════════════════════════════════════════════
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('riyaz-looper-v3', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('store')) db.createObjectStore('store');
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => rej();
+  });
+}
+async function idbGet(key) {
+  try {
+    const db = await openDB();
+    return new Promise(res => {
+      const req = db.transaction('store','readonly').objectStore('store').get(key);
+      req.onsuccess = () => res(req.result ?? null);
+      req.onerror = () => res(null);
+    });
+  } catch { return null; }
+}
+async function idbSet(key, val) {
+  try {
+    const db = await openDB();
+    return new Promise(res => {
+      const tx = db.transaction('store','readwrite');
+      tx.objectStore('store').put(val, key);
+      tx.oncomplete = res; tx.onerror = res;
+    });
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════
+// App state
+// ═══════════════════════════════════════════════════
+let audioCtx = null, audioBuffer = null, duration = 0, currentFileName = '';
+let mainSource = null, mainIsPlaying = false, mainStartOffset = 0, mainStartAt = 0;
+let activeSectionId = null, secSource = null, secIsPlaying = false;
+let secStartOffset = 0, secStartAt = 0, secLoopTarget = null;
+let groupIds = [], groupIsPlaying = false, groupLoop = true;
+let groupSource = null, groupCurrentIdx = 0, groupStartAt = 0, groupSectionOffset = 0;
+let sections = [];
+const sectionColors = ['#e74c3c','#e67e22','#eab308','#22c55e','#14b8a6','#3b82f6','#a855f7','#ec4899'];
+let colorIdx = 0, sectionCounter = 0;
+let dragState = {};
+let currentSessionName = '';
+let currentSessionFile = null;   // FileSystemFileHandle for the current .json
+let projectDirHandle = null;     // root project folder handle
+let selectedSession = null;      // { label, data, fileHandle }
+
+// ═══════════════════════════════════════════════════
+// Start screen init — auto-detect project folder
+// ═══════════════════════════════════════════════════
+async function initStartScreen() {
+  // grant-area is always visible by default — only hide it once we confirm live access
+  if (!window.showDirectoryPicker) {
+    document.getElementById('grant-btn').textContent = '📁 Select sessions folder';
+    return;
+  }
+  const stored = await idbGet('projectDir');
+  if (!stored) return; // first time — button stays visible as-is
+
+  // Try to silently restore access (works if tab was never fully closed)
+  try {
+    const perm = await stored.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      projectDirHandle = stored;
+      await onAccessGranted();
+      return;
+    }
+  } catch {}
+
+  // Permission lapsed — keep button visible, update its label
+  projectDirHandle = stored;
+  document.getElementById('grant-btn').textContent = '🔓 Re-grant access to riyaz-phrase-looper';
+}
+
+async function grantAccess() {
+  if (!window.showDirectoryPicker) { showToast('Use Chrome for folder access'); return; }
+  try {
+    if (projectDirHandle) {
+      // Already have a stored handle — re-request permission without opening picker
+      const perm = await projectDirHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') { await onAccessGranted(); }
+      else { showToast('Permission denied — try again'); }
+      return;
+    }
+    // First ever launch — open picker, user selects riyaz-phrase-looper folder
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'music' });
+    projectDirHandle = handle;
+    await idbSet('projectDir', handle);
+    await onAccessGranted();
+  } catch (e) {
+    if (e.name !== 'AbortError') showToast('Could not access folder');
+  }
+}
+
+async function onAccessGranted() {
+  document.getElementById('grant-area').classList.add('hidden');
+  await refreshSessionsList();
+}
+
+// ═══════════════════════════════════════════════════
+// Sessions list
+// ═══════════════════════════════════════════════════
+async function refreshSessionsList() {
+  if (!projectDirHandle) return;
+  // Navigate into sessions/ sub-folder (sibling to index.html)
+  let sessionsDir;
+  try { sessionsDir = await projectDirHandle.getDirectoryHandle('sessions'); }
+  catch { return; } // sessions/ not created yet — silently skip
+
+  const list = document.getElementById('sessions-list');
+  list.innerHTML = '';
+
+  const entries = [];
+  for await (const [name, handle] of sessionsDir.entries()) {
+    if (name.endsWith('.json') && handle.kind === 'file') {
+      try {
+        const file = await handle.getFile();
+        const data = JSON.parse(await file.text());
+        entries.push({ label: name.replace('.json',''), data, fileHandle: handle });
+      } catch {}
+    }
+  }
+  entries.sort((a, b) => a.label.localeCompare(b.label));
+
+  if (!entries.length) {
+    list.innerHTML = `<div id="sessions-empty" style="padding:20px 8px;text-align:center;color:#444;font-size:13px;line-height:1.7"><strong>No sessions yet.</strong><br>Drop an audio file to create one.</div>`;
+    return;
+  }
+
+  entries.forEach(entry => {
+    const secs = entry.data.sections || [];
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    card.innerHTML = `
+      <div class="session-card-icon">🎼</div>
+      <div class="session-card-info">
+        <div class="session-card-name">${entry.label}</div>
+        <div class="session-card-meta">${entry.data.fileName || ''} · ${secs.length} section${secs.length !== 1 ? 's' : ''}</div>
+        <div class="session-card-dots">${secs.map(s => `<div class="session-dot" style="background:${s.color}"></div>`).join('')}</div>
+      </div>`;
+    card.addEventListener('click', () => onSessionCardClick(card, entry));
+    list.appendChild(card);
+  });
+}
+
+async function onSessionCardClick(cardEl, entry) {
+  document.querySelectorAll('.session-card').forEach(c => c.classList.remove('active'));
+  cardEl.classList.add('active');
+  selectedSession = entry;
+
+  const info = document.getElementById('selected-session-info');
+  info.classList.add('visible');
+  document.getElementById('sel-sess-title').textContent = '🎼 ' + entry.label;
+
+  // Resolve audio and open immediately
+  await resolveSessionAudio(entry, true);
+}
+
+// Attempt to find the audio file relative to project root, then open or show error
+async function resolveSessionAudio(entry, autoOpen) {
+  const info = document.getElementById('selected-session-info');
+  const statusEl = document.getElementById('sel-sess-audio-status');
+  const reselectBtn = document.getElementById('sel-sess-reselect-btn');
+
+  reselectBtn.classList.remove('visible');
+  info.classList.remove('visible');
+
+  const audioRelPath = entry.data.audioPath;
+  const audioFileName = entry.data.fileName || audioRelPath || 'unknown';
+
+  // Resolve audioPath relative to project root (audio/ is a sibling of index.html)
+  if (projectDirHandle && audioRelPath) {
+    try {
+      const parts = audioRelPath.split('/');
+      let dir = projectDirHandle;
+      for (let i = 0; i < parts.length - 1; i++) {
+        dir = await dir.getDirectoryHandle(parts[i]);
+      }
+      const fh = await dir.getFileHandle(parts[parts.length - 1]);
+      const file = await fh.getFile(); // throws if deleted/renamed
+      entry._audioFile = file;
+      if (autoOpen) { openSelectedSession(); return; }
+      return;
+    } catch { /* file missing — fall through to error */ }
+  }
+
+  // File not found — show error box with reselect option
+  document.getElementById('sel-sess-title').textContent = '🎼 ' + entry.label;
+  statusEl.className = 'err';
+  statusEl.textContent = `✗ Audio not found: ${audioFileName}`;
+  reselectBtn.classList.add('visible');
+  info.classList.add('visible');
+}
+
+async function openSelectedSession() {
+  if (!selectedSession?._audioFile) return;
+  await loadAudioFile(selectedSession._audioFile);
+  applySessionSections(selectedSession.data.sections);
+  currentSessionName = selectedSession.label;
+  currentSessionFile = selectedSession.fileHandle;
+  document.getElementById('session-name-display').textContent = '— ' + currentSessionName;
+  selectedSession = null;
+}
+
+async function reselectAudioForSession() {
+  if (!selectedSession) return;
+  if (!window.showOpenFilePicker) {
+    // fallback
+    document.getElementById('file-input-start').onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      selectedSession._audioFile = f;
+      // Update session with new filename
+      selectedSession.data.fileName = f.name;
+      selectedSession.data.audioPath = 'audio/' + f.name;
+      await persistSession(selectedSession);
+      document.getElementById('sel-sess-audio-status').className = 'ok';
+      document.getElementById('sel-sess-audio-status').textContent = `✓ ${f.name}`;
+      document.getElementById('sel-sess-open-btn').classList.add('visible');
+      document.getElementById('sel-sess-reselect-btn').classList.remove('visible');
+    };
+    document.getElementById('file-input-start').click();
+    return;
+  }
+  try {
+    const [fh] = await window.showOpenFilePicker({ types: [{ description: 'Audio', accept: { 'audio/*': ['.m4a','.mp3','.wav','.aac','.ogg','.flac'] } }] });
+    const file = await fh.getFile();
+    selectedSession._audioFile = file;
+    // Update session JSON with new relative path (assume audio/ folder)
+    selectedSession.data.fileName = file.name;
+    selectedSession.data.audioPath = 'audio/' + file.name;
+    await persistSession(selectedSession);
+    document.getElementById('sel-sess-audio-status').className = 'ok';
+    document.getElementById('sel-sess-audio-status').textContent = `✓ ${file.name}`;
+    document.getElementById('sel-sess-open-btn').classList.add('visible');
+    document.getElementById('sel-sess-reselect-btn').classList.remove('visible');
+    showToast('Session updated — audio path saved');
+  } catch (e) {
+    if (e.name !== 'AbortError') showToast('Could not open file');
+  }
+}
+
+// Write session JSON back to disk
+async function persistSession(entry) {
+  if (!entry.fileHandle) return;
+  try {
+    const writable = await entry.fileHandle.createWritable();
+    await writable.write(JSON.stringify(entry.data, null, 2));
+    await writable.close();
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════
+// Drop zone on start screen
+// ═══════════════════════════════════════════════════
+const dropZoneEl = document.getElementById('drop-zone');
+dropZoneEl.addEventListener('dragover', e => { e.preventDefault(); dropZoneEl.classList.add('drag-over'); });
+dropZoneEl.addEventListener('dragleave', () => dropZoneEl.classList.remove('drag-over'));
+dropZoneEl.addEventListener('drop', e => {
+  e.preventDefault(); dropZoneEl.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  startScreenFilePicked(f);
+});
+document.getElementById('file-input-start').addEventListener('change', e => {
+  if (e.target.files[0]) startScreenFilePicked(e.target.files[0]);
+});
+
+async function startScreenFilePicked(file) {
+  if (selectedSession) {
+    // User dropped audio onto existing session
+    selectedSession._audioFile = file;
+    selectedSession.data.fileName = file.name;
+    await openSelectedSession();
+  } else {
+    await loadAudioFile(file);
+  }
+}
+
+function showStartScreen() {
+  stopAll();
+  sections.forEach(s => document.getElementById(`card-${s.id}`)?.remove());
+  sections = []; colorIdx = 0; sectionCounter = 0; groupIds = [];
+  document.getElementById('no-sections').style.display = 'block';
+  updateGroupBar();
+  document.getElementById('selected-session-info').classList.remove('visible');
+  document.querySelectorAll('.session-card').forEach(c => c.classList.remove('active'));
+  selectedSession = null;
+  document.getElementById('start-screen').classList.remove('hidden');
+  refreshSessionsList();
+}
+
+// ═══════════════════════════════════════════════════
+// Audio loading
+// ═══════════════════════════════════════════════════
+const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadAudioFile(e.target.files[0]); });
+
+async function loadAudioFile(file) {
+  stopAll();
+  currentFileName = file.name;
+  document.getElementById('file-name').textContent = file.name;
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  showToast('Loading audio…');
+  audioBuffer = await audioCtx.decodeAudioData(await file.arrayBuffer());
+  duration = audioBuffer.duration;
+  document.getElementById('start-screen').classList.add('hidden');
+  drawMainWaveform();
+  document.getElementById('main-play-btn').disabled = false;
+  document.getElementById('main-stop-btn').disabled = false;
+  document.getElementById('add-section-btn').disabled = false;
+  document.getElementById('save-session-btn').disabled = false;
+  showToast('Loaded: ' + file.name);
+}
+
+// ═══════════════════════════════════════════════════
+// Session save
+// ═══════════════════════════════════════════════════
+async function saveSession() {
+  const name = currentSessionName || currentFileName.replace(/\.[^.]+$/, '') || 'session';
+  const data = {
+    fileName: currentFileName,
+    audioPath: 'audio/' + currentFileName,
+    sections: sections.map(s => ({
+      id: s.id, name: s.name,
+      start: +s.start.toFixed(2), end: +s.end.toFixed(2),
+      color: s.color, loop: s.loop
+    }))
+  };
+  const json = JSON.stringify(data, null, 2);
+
+  // Write directly to sessions/ folder if we have access
+  if (projectDirHandle) {
+    try {
+      const perm = await projectDirHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        const sessDir = await projectDirHandle.getDirectoryHandle('sessions', { create: true });
+        const fh = await sessDir.getFileHandle(name + '.json', { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(json); await writable.close();
+        currentSessionFile = fh;
+        currentSessionName = name;
+        document.getElementById('session-name-display').textContent = '— ' + name;
+        showToast('Saved: sessions/' + name + '.json');
+        return;
+      }
+    } catch {}
+  }
+  // Fallback: download
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([json], { type: 'application/json' })),
+    download: name + '.json'
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Downloaded ' + name + '.json');
+}
+
+function applySessionSections(defs) {
+  document.getElementById('no-sections').style.display = 'none';
+  defs.forEach(def => {
+    sectionCounter++;
+    const s = { id: def.id ?? (Date.now() + Math.random()), name: def.name, start: def.start, end: def.end, color: def.color, loop: def.loop ?? true };
+    const ci = sectionColors.indexOf(s.color);
+    if (ci >= 0) colorIdx = Math.max(colorIdx, ci + 1);
+    sections.push(s);
+    const card = buildSectionCard(s);
+    document.getElementById('sections-area').appendChild(card);
+    requestAnimationFrame(() => {
+      drawSectionWaveform(s); drawSectionOverlay(s); updateRangeLabel(s);
+      document.getElementById(`wave-hint-${s.id}`).style.opacity = '0';
+      const lb = document.getElementById(`sec-loop-${s.id}`);
+      if (lb) { lb.classList.toggle('on', s.loop); lb.textContent = s.loop ? '↺ Loop' : '↺ Once'; }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Waveform drawing
+// ═══════════════════════════════════════════════════
+function getPeaks(channelData, numBins) {
+  const step = Math.max(1, Math.floor(channelData.length / numBins)), peaks = [];
+  for (let i = 0; i < numBins; i++) {
+    let mn = 0, mx = 0;
+    for (let j = 0; j < step; j++) { const v = channelData[i*step+j]||0; if(v<mn)mn=v; if(v>mx)mx=v; }
+    peaks.push([mn, mx]);
+  }
+  return peaks;
+}
+function drawWaveformOnCanvas(canvas, ctx2d, peaks, height, color) {
+  const w = canvas.width, h = height, mid = h / 2;
+  ctx2d.fillStyle = '#0d0d1a'; ctx2d.fillRect(0, 0, w, h);
+  ctx2d.strokeStyle = '#1e2040'; ctx2d.lineWidth = 1;
+  ctx2d.beginPath(); ctx2d.moveTo(0, mid); ctx2d.lineTo(w, mid); ctx2d.stroke();
+  const barW = w / peaks.length;
+  for (let x = 0; x < peaks.length; x++) {
+    const [mn, mx] = peaks[x], yT = mid+mn*mid*0.92, yB = mid+mx*mid*0.92, bh = Math.max(1,yB-yT), px = x*barW;
+    const grd = ctx2d.createLinearGradient(px,yT,px,yB);
+    grd.addColorStop(0, color+'cc'); grd.addColorStop(0.5, color+'66'); grd.addColorStop(1, color+'cc');
+    ctx2d.fillStyle = grd; ctx2d.fillRect(px, yT, Math.max(1, barW-0.5), bh);
+  }
+}
+const mainWaveCanvas = document.getElementById('main-waveform-canvas');
+const mainWCtx = mainWaveCanvas.getContext('2d');
+function drawMainWaveform() {
+  if (!audioBuffer) return;
+  mainWaveCanvas.width = mainWaveCanvas.offsetWidth; mainWaveCanvas.height = 90;
+  drawWaveformOnCanvas(mainWaveCanvas, mainWCtx, getPeaks(audioBuffer.getChannelData(0), mainWaveCanvas.width), 90, '#3b82f6');
+}
+document.getElementById('main-waveform-wrap').addEventListener('click', e => {
+  if (!audioBuffer) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  seekMain(((e.clientX - rect.left) / rect.width) * duration);
+});
+window.addEventListener('resize', () => { drawMainWaveform(); sections.forEach(s => { drawSectionWaveform(s); drawSectionOverlay(s); }); });
+
+// ═══════════════════════════════════════════════════
+// Main playback
+// ═══════════════════════════════════════════════════
+function ensureCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function toggleMainPlay() {
+  if (!audioBuffer) return;
+  ensureCtx(); stopSection(false); stopGroup(false);
+  if (mainIsPlaying) {
+    mainStartOffset = mainCurrentTime();
+    if (mainSource) { try { mainSource.stop(); } catch(e){} mainSource = null; }
+    mainIsPlaying = false; setMainPlayBtn(false);
+  } else { startMain(mainStartOffset); }
+}
+function startMain(offset) {
+  ensureCtx();
+  if (mainSource) { try { mainSource.stop(); } catch(e){} mainSource = null; }
+  mainSource = audioCtx.createBufferSource();
+  mainSource.buffer = audioBuffer; mainSource.connect(audioCtx.destination);
+  mainSource.start(0, offset);
+  mainStartAt = audioCtx.currentTime; mainStartOffset = offset; mainIsPlaying = true;
+  setMainPlayBtn(true);
+  mainSource.onended = () => { if (!mainIsPlaying) return; mainIsPlaying = false; mainStartOffset = 0; mainSource = null; setMainPlayBtn(false); };
+}
+function setMainPlayBtn(playing) {
+  const btn = document.getElementById('main-play-btn');
+  btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.classList.toggle('playing', playing);
+}
+function seekMain(t) { mainStartOffset = Math.max(0, Math.min(t, duration)); if (mainIsPlaying) startMain(mainStartOffset); }
+function mainCurrentTime() { if (!audioCtx || !mainIsPlaying) return mainStartOffset; return mainStartOffset + (audioCtx.currentTime - mainStartAt); }
+
+// ═══════════════════════════════════════════════════
+// Section cards
+// ═══════════════════════════════════════════════════
+function addSection() {
+  if (!audioBuffer) return;
+  sectionCounter++;
+  const color = sectionColors[colorIdx % sectionColors.length]; colorIdx++;
+  const s = { id: Date.now(), name: `Section ${sectionCounter}`, start: null, end: null, color, loop: true };
+  sections.push(s);
+  document.getElementById('no-sections').style.display = 'none';
+  const card = buildSectionCard(s);
+  document.getElementById('sections-area').appendChild(card);
+  requestAnimationFrame(() => { drawSectionWaveform(s); drawSectionOverlay(s); });
+}
+function buildSectionCard(s) {
+  const card = document.createElement('div');
+  card.className = 'section-card'; card.id = `card-${s.id}`; card.style.setProperty('--color', s.color);
+  card.innerHTML = `
+    <div class="card-header">
+      <input type="checkbox" class="sec-checkbox" id="chk-${s.id}" onchange="onCheckboxChange(${s.id}, this.checked)">
+      <button class="sec-play-btn" id="sec-play-${s.id}" onclick="toggleSectionPlay(${s.id})">▶</button>
+      <input class="name-input" value="${s.name}" id="sec-name-${s.id}" onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()">
+      <span class="range-label" id="sec-range-${s.id}">drag waveform to set range</span>
+      <button class="loop-btn on" id="sec-loop-${s.id}" onclick="toggleSectionLoop(${s.id})">↺ Loop</button>
+      <button class="del-btn" onclick="deleteSection(${s.id})">×</button>
+    </div>
+    <div class="mini-wave-wrap" id="mini-wrap-${s.id}">
+      <canvas class="mini-wave-canvas" id="mini-wave-${s.id}"></canvas>
+      <canvas class="mini-overlay-canvas" id="mini-overlay-${s.id}"></canvas>
+      <div class="mini-playhead" id="mini-ph-${s.id}"></div>
+      <span class="wave-hint" id="wave-hint-${s.id}">drag to select range</span>
+    </div>`;
+  const wrap = card.querySelector(`#mini-wrap-${s.id}`);
+  // mode: 'new' | 'left' | 'right'
+  dragState[s.id] = { dragging: false, mode: 'new', x0: null };
+
+  function getEdgeMode(clientX) {
+    if (s.start === null || s.end === null || !duration) return 'new';
+    const rect = wrap.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const w = rect.width;
+    const x1 = (s.start / duration) * w;
+    const x2 = (s.end / duration) * w;
+    if (Math.abs(px - x1) <= HANDLE_HIT) return 'left';
+    if (Math.abs(px - x2) <= HANDLE_HIT) return 'right';
+    if (px > x1 && px < x2) return 'move';  // inside selection — move whole range
+    return 'new';
+  }
+
+  wrap.addEventListener('mousemove', e => {
+    if (dragState[s.id].dragging) {
+      const t = clientXToTime(s.id, e.clientX);
+      const mode = dragState[s.id].mode;
+      if (mode === 'left') {
+        s.start = Math.max(0, Math.min(t, s.end - 0.1));
+      } else if (mode === 'right') {
+        s.end = Math.min(duration, Math.max(t, s.start + 0.1));
+      } else if (mode === 'move') {
+        const dt = t - clientXToTime(s.id, dragState[s.id].lastX);
+        const len = s.end - s.start;
+        s.start = Math.max(0, Math.min(s.start + dt, duration - len));
+        s.end = s.start + len;
+        dragState[s.id].lastX = e.clientX;
+      } else { // new selection
+        const t0 = clientXToTime(s.id, dragState[s.id].x0);
+        s.start = Math.min(t0, t); s.end = Math.max(t0, t);
+      }
+      drawSectionOverlay(s); updateRangeLabel(s);
+    } else {
+      const mode = getEdgeMode(e.clientX);
+      wrap.style.cursor = mode === 'left' || mode === 'right' ? 'ew-resize'
+                        : mode === 'move' ? 'grab'
+                        : 'crosshair';
+    }
+  });
+
+  wrap.addEventListener('mousedown', e => {
+    if (!audioBuffer) return;
+    const mode = getEdgeMode(e.clientX);
+    dragState[s.id] = { dragging: true, mode, x0: e.clientX, lastX: e.clientX };
+    if (mode === 'new') { s.start = clientXToTime(s.id, e.clientX); s.end = s.start; }
+    wrap.style.cursor = mode === 'move' ? 'grabbing' : mode === 'left' || mode === 'right' ? 'ew-resize' : 'crosshair';
+    drawSectionOverlay(s);
+    e.preventDefault();
+  });
+
+  const fin = e => {
+    if (!dragState[s.id].dragging) return;
+    const mode = dragState[s.id].mode;
+    dragState[s.id].dragging = false;
+    if (mode === 'new') {
+      const t = clientXToTime(s.id, e.clientX), t0 = clientXToTime(s.id, dragState[s.id].x0);
+      s.start = Math.min(t0, t); s.end = Math.max(t0, t);
+      if (s.end - s.start < 0.05) { s.start = null; s.end = null; }
+    }
+    drawSectionOverlay(s); updateRangeLabel(s);
+    document.getElementById(`wave-hint-${s.id}`).style.opacity = s.start !== null ? '0' : '1';
+    wrap.style.cursor = 'crosshair';
+  };
+  wrap.addEventListener('mouseup', fin);
+  wrap.addEventListener('mouseleave', e => { fin(e); wrap.style.cursor = 'crosshair'; });
+
+  wrap.addEventListener('click', e => {
+    if (Math.abs(e.clientX - (dragState[s.id].x0 || e.clientX)) > 4) return;
+    if (!audioBuffer || activeSectionId !== s.id || !secIsPlaying) return;
+    seekSection(s, clientXToTime(s.id, e.clientX));
+  });
+  return card;
+}
+function clientXToTime(id, clientX) {
+  const wrap = document.getElementById(`mini-wrap-${id}`); if (!wrap) return 0;
+  const rect = wrap.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (clientX-rect.left)/rect.width)) * duration;
+}
+function drawSectionWaveform(s) {
+  if (!audioBuffer) return;
+  const canvas = document.getElementById(`mini-wave-${s.id}`); if (!canvas) return;
+  canvas.width = canvas.offsetWidth; canvas.height = 68;
+  drawWaveformOnCanvas(canvas, canvas.getContext('2d'), getPeaks(audioBuffer.getChannelData(0), canvas.width), 68, s.color);
+}
+const HANDLE_HIT = 10; // px either side of edge counts as handle zone
+
+function drawSectionOverlay(s) {
+  const canvas = document.getElementById(`mini-overlay-${s.id}`); if (!canvas) return;
+  canvas.width = canvas.offsetWidth||canvas.parentElement.offsetWidth; canvas.height = 68;
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  if (!duration||s.start===null||s.end===null) return;
+  const w=canvas.width, x1=(s.start/duration)*w, x2=(s.end/duration)*w, selW=Math.max(2,x2-x1);
+
+  // Dim outside
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,x1,68); ctx.fillRect(x2,0,w-x2,68);
+
+  // Selection fill
+  ctx.fillStyle=s.color+'28'; ctx.fillRect(x1,0,selW,68);
+
+  // Selection border
+  ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.strokeRect(x1,1,selW,66);
+
+  // Left resize handle — solid bar + arrow hint
+  ctx.fillStyle=s.color+'ee'; ctx.fillRect(x1,0,4,68);
+  ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='bold 11px sans-serif'; ctx.textBaseline='middle';
+  if(selW>30){ ctx.fillText('◀',x1+6,34); }
+
+  // Right resize handle
+  ctx.fillStyle=s.color+'ee'; ctx.fillRect(x2-4,0,4,68);
+  if(selW>30){ ctx.fillText('▶',x2-16,34); }
+
+  // Time labels
+  ctx.fillStyle=s.color+'cc'; ctx.font='10px -apple-system,sans-serif'; ctx.textBaseline='top';
+  ctx.fillText(fmtTime(s.start),Math.max(2,x1+6),4);
+  if(x2-x1>50){const el=fmtTime(s.end); ctx.fillText(el,Math.min(w-el.length*6-4,x2-el.length*6-2),4);}
+}
+function updateRangeLabel(s) {
+  const el = document.getElementById(`sec-range-${s.id}`);
+  if (el) el.textContent = s.start!==null&&s.end!==null ? `${fmtTime(s.start)} – ${fmtTime(s.end)}` : 'drag waveform to set range';
+}
+
+// ═══════════════════════════════════════════════════
+// Checkbox + group
+// ═══════════════════════════════════════════════════
+function onCheckboxChange(id, checked) {
+  if (checked) { if (!groupIds.includes(id)) groupIds.push(id); }
+  else { groupIds = groupIds.filter(x => x !== id); }
+  if (groupIsPlaying) { stopGroup(false); startGroupFrom(0); }
+  updateGroupBar();
+}
+function updateGroupBar() {
+  const bar = document.getElementById('group-bar');
+  const valid = groupIds.filter(id => { const s=sections.find(x=>x.id===id); return s&&s.start!==null; });
+  if (valid.length >= 2) {
+    bar.classList.add('visible');
+    const names = valid.map(id => sections.find(x=>x.id===id)?.name).filter(Boolean);
+    document.getElementById('group-label').textContent = `${valid.length} sections: ${names.join(' → ')}`;
+  } else {
+    bar.classList.remove('visible');
+    if (groupIsPlaying) stopGroup(true);
+  }
+  document.getElementById('group-loop-btn').classList.toggle('on', groupLoop);
+}
+function clearGroupSelection() {
+  stopGroup(true); groupIds = [];
+  sections.forEach(s => { const c=document.getElementById(`chk-${s.id}`); if(c)c.checked=false; document.getElementById(`card-${s.id}`)?.classList.remove('group-playing'); });
+  updateGroupBar();
+}
+function toggleGroupLoop() {
+  groupLoop=!groupLoop;
+  document.getElementById('group-loop-btn').classList.toggle('on',groupLoop);
+  document.getElementById('group-loop-btn').textContent = groupLoop ? '↺ Loop group' : '↺ Play once';
+}
+
+// ═══════════════════════════════════════════════════
+// Group playback
+// ═══════════════════════════════════════════════════
+function getValidGroupSections() {
+  return groupIds.map(id=>sections.find(x=>x.id===id)).filter(s=>s&&s.start!==null&&s.end!==null).sort((a,b)=>a.start-b.start);
+}
+function toggleGroupPlay() {
+  if (!audioBuffer) return; ensureCtx();
+  if (mainIsPlaying) { mainStartOffset=mainCurrentTime(); if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;} mainIsPlaying=false; setMainPlayBtn(false); }
+  stopSection(false);
+  if (groupIsPlaying) { stopGroup(false); } else { startGroupFrom(0); }
+}
+function startGroupFrom(idx) {
+  const ordered=getValidGroupSections(); if(!ordered.length)return;
+  groupCurrentIdx=idx%ordered.length; groupIsPlaying=true;
+  document.getElementById('group-play-btn').classList.add('playing');
+  document.getElementById('group-play-btn').textContent='⏸';
+  playGroupSection(ordered, groupCurrentIdx);
+}
+function playGroupSection(ordered, idx) {
+  const s=ordered[idx]; if(!s)return;
+  ordered.forEach((sec,i)=>document.getElementById(`card-${sec.id}`)?.classList.toggle('group-playing',i===idx));
+  document.getElementById('group-progress').textContent=`${idx+1} / ${ordered.length}  ·  ${s.name}  (${fmtTime(s.start)} – ${fmtTime(s.end)})`;
+  if(groupSource){try{groupSource.stop();}catch(e){} groupSource=null;}
+  groupSource=audioCtx.createBufferSource(); groupSource.buffer=audioBuffer; groupSource.connect(audioCtx.destination);
+  groupSource.start(0,s.start,s.end-s.start);
+  groupStartAt=audioCtx.currentTime; groupSectionOffset=s.start; groupCurrentIdx=idx;
+  groupSource.onended=()=>{
+    if(!groupIsPlaying)return;
+    const next=idx+1;
+    if(next<ordered.length){playGroupSection(ordered,next);}
+    else if(groupLoop){playGroupSection(ordered,0);}
+    else{stopGroup(true);}
+  };
+}
+function stopGroup(resetHighlight=true) {
+  if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
+  groupIsPlaying=false;
+  document.getElementById('group-play-btn').classList.remove('playing');
+  document.getElementById('group-play-btn').textContent='▶';
+  document.getElementById('group-progress').textContent='';
+  if(resetHighlight) sections.forEach(s=>document.getElementById(`card-${s.id}`)?.classList.remove('group-playing'));
+}
+function groupCurrentTime() { if(!audioCtx||!groupIsPlaying)return groupSectionOffset; return groupSectionOffset+(audioCtx.currentTime-groupStartAt); }
+
+// ═══════════════════════════════════════════════════
+// Single section playback
+// ═══════════════════════════════════════════════════
+function toggleSectionPlay(id) {
+  const s=sections.find(x=>x.id===id); if(!s||s.start===null)return;
+  ensureCtx();
+  if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
+  stopGroup(false);
+  if(activeSectionId===id&&secIsPlaying){
+    secStartOffset=secCurrentTime(); if(secSource){try{secSource.stop();}catch(e){} secSource=null;}
+    secIsPlaying=false; setSectionPlayBtn(id,false); document.getElementById(`card-${id}`)?.classList.remove('active-playing');
+  } else {
+    if(activeSectionId&&activeSectionId!==id)stopSection(false);
+    activeSectionId=id;
+    const resume=secStartOffset>=s.start&&secStartOffset<s.end?secStartOffset:s.start;
+    startSection(s,resume);
+  }
+}
+function startSection(s,offset) {
+  if(secSource){try{secSource.stop();}catch(e){} secSource=null;}
+  secSource=audioCtx.createBufferSource(); secSource.buffer=audioBuffer; secSource.connect(audioCtx.destination);
+  secSource.start(0,offset,s.end-offset);
+  secStartAt=audioCtx.currentTime; secStartOffset=offset; secIsPlaying=true; secLoopTarget=s; activeSectionId=s.id;
+  setSectionPlayBtn(s.id,true); document.getElementById(`card-${s.id}`)?.classList.add('active-playing');
+  secSource.onended=()=>{
+    if(!secIsPlaying||secLoopTarget?.id!==s.id)return;
+    if(s.loop){startSection(s,s.start);}
+    else{secIsPlaying=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
+  };
+}
+function seekSection(s,t){secStartOffset=Math.max(s.start,Math.min(t,s.end));if(secIsPlaying&&activeSectionId===s.id)startSection(s,secStartOffset);}
+function stopSection(resetOffset=true){
+  const prev=activeSectionId;
+  if(secSource){secSource.onended=null;try{secSource.stop();}catch(e){} secSource=null;}
+  secIsPlaying=false; if(resetOffset)secStartOffset=0; secLoopTarget=null;
+  if(prev){setSectionPlayBtn(prev,false);document.getElementById(`card-${prev}`)?.classList.remove('active-playing');}
+  activeSectionId=null;
+}
+function setSectionPlayBtn(id,playing){const btn=document.getElementById(`sec-play-${id}`);if(btn)btn.textContent=playing?'⏸':'▶';}
+function toggleSectionLoop(id){
+  const s=sections.find(x=>x.id===id);if(!s)return; s.loop=!s.loop;
+  const btn=document.getElementById(`sec-loop-${id}`);
+  if(btn){btn.classList.toggle('on',s.loop);btn.textContent=s.loop?'↺ Loop':'↺ Once';}
+}
+function deleteSection(id){
+  if(activeSectionId===id)stopSection();
+  if(groupIds.includes(id)){groupIds=groupIds.filter(x=>x!==id);if(groupIsPlaying)stopGroup(true);updateGroupBar();}
+  sections=sections.filter(x=>x.id!==id); delete dragState[id];
+  document.getElementById(`card-${id}`)?.remove();
+  if(!sections.length)document.getElementById('no-sections').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════
+// Stop all / animation / utils
+// ═══════════════════════════════════════════════════
+function stopAll(){
+  if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;}
+  mainIsPlaying=false;mainStartOffset=0;setMainPlayBtn(false);
+  stopSection(true);stopGroup(true);
+}
+function secCurrentTime(){if(!audioCtx||!secIsPlaying)return secStartOffset;return secStartOffset+(audioCtx.currentTime-secStartAt);}
+function fmtTime(s){if(s===null||s===undefined)return'--';return`${Math.floor(s/60)}:${(s%60).toFixed(1).padStart(4,'0')}`;}
+
+function animLoop(){
+  const mainPH=document.getElementById('main-playhead');
+  let mainT=Math.min(mainCurrentTime(),duration||0);
+  if(audioBuffer){
+    mainPH.style.display='block'; mainPH.style.left=((mainT/duration)*mainWaveCanvas.offsetWidth)+'px';
+    const dt=secIsPlaying?secCurrentTime():groupIsPlaying?groupCurrentTime():mainT;
+    const dm=Math.floor(duration/60),ds=(duration%60).toFixed(1).padStart(4,'0');
+    const cm=Math.floor(dt/60),cs=(dt%60).toFixed(1).padStart(4,'0');
+    document.getElementById('time-display').textContent=`${cm}:${cs} / ${dm}:${ds}`;
+  }
+  sections.forEach(s=>{
+    const ph=document.getElementById(`mini-ph-${s.id}`),wrap=document.getElementById(`mini-wrap-${s.id}`);
+    if(!ph||!wrap)return;
+    let show=false,t=0;
+    if(activeSectionId===s.id&&secIsPlaying){show=true;t=secCurrentTime();}
+    else if(groupIsPlaying){const ord=getValidGroupSections();if(ord[groupCurrentIdx]?.id===s.id){show=true;t=groupCurrentTime();}}
+    ph.style.display=show?'block':'none';
+    if(show)ph.style.left=((Math.min(t,duration)/duration)*wrap.offsetWidth)+'px';
+  });
+  requestAnimationFrame(animLoop);
+}
+requestAnimationFrame(animLoop);
+
+let toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();if(audioBuffer)toggleMainPlay();}
+  if(e.code==='Escape')stopAll();
+  if((e.metaKey||e.ctrlKey)&&e.code==='KeyS'){e.preventDefault();if(audioBuffer&&sections.length)saveSession();}
+});
+
+// Boot
+initStartScreen();
+</script>
+</body>
+</html>
