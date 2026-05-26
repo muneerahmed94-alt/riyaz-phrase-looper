@@ -79,7 +79,6 @@ header h1 {
 #add-section-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Sections scroll ── */
-#select-all-bar { flex-shrink: 0; padding: 4px 10px 4px 26px; }
 #select-all-chk:checked { background: #c9963e; border-color: #c9963e; }
 #select-all-chk:checked::after { content: '✓'; position: absolute; top: -2px; left: 1px; font-size: 10px; color: white; font-weight: 700; }
 #select-all-chk:indeterminate { background: #f7edd6; border-color: #c9963e; }
@@ -424,18 +423,17 @@ header h1 {
   <button id="add-section-btn" disabled onclick="addSection()">+ Add Section</button>
 </div>
 
-<div id="select-all-bar" style="display:none; align-items:center; gap:8px; padding:4px 12px 2px;">
-  <input type="checkbox" id="select-all-chk" style="
-    appearance:none; -webkit-appearance:none; width:14px; height:14px;
-    border-radius:3px; border:1.5px solid #b5995a; background:#fdf6e3;
-    cursor:pointer; position:relative; flex-shrink:0; transition:all 0.15s;
-  " onchange="toggleSelectAll(this.checked)" title="Select / deselect all sections">
-  <label for="select-all-chk" style="font-size:11px; color:#8d6e63; cursor:pointer; user-select:none; font-family:'Poppins',sans-serif;">
-    Select all sections
-  </label>
-</div>
-
 <div id="sections-area">
+  <div id="select-all-bar" style="display:none; align-items:center; gap:8px; padding:2px 0 2px 14px;">
+    <input type="checkbox" id="select-all-chk" style="
+      appearance:none; -webkit-appearance:none; width:14px; height:14px;
+      border-radius:3px; border:1.5px solid #b5995a; background:#fdf6e3;
+      cursor:pointer; position:relative; flex-shrink:0; transition:all 0.15s;
+    " onchange="toggleSelectAll(this.checked)" title="Select / deselect all sections">
+    <label for="select-all-chk" style="font-size:11px; color:#8d6e63; cursor:pointer; user-select:none; font-family:'Poppins',sans-serif;">
+      Select all sections
+    </label>
+  </div>
   <div id="no-sections">
     Click <strong>+ Add Section</strong> to create a practice section.<br>
     Drag on the section waveform to select the range you want to loop.<br>
