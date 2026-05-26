@@ -622,7 +622,7 @@ async function idbSet(key, val) {
 // ═══════════════════════════════════════════════════
 let audioCtx = null, audioBuffer = null, duration = 0, currentFileName = '';
 let mainSource = null, mainIsPlaying = false, mainStartOffset = 0, mainStartAt = 0;
-let activeSectionId = null, secSource = null, secIsPlaying = false;
+let activeSectionId = null, secSource = null, secIsPlaying = false, secIsPaused = false;
 let secStartOffset = 0, secStartAt = 0, secLoopTarget = null;
 let groupIds = [], groupIsPlaying = false, groupIsPaused = false, groupLoop = true;
 let groupSource = null, groupCurrentIdx = 0, groupStartAt = 0, groupSectionOffset = 0;
@@ -1251,7 +1251,7 @@ function toggleGroupPlay() {
     if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
     groupIsPlaying=false; groupIsPaused=true;
     document.getElementById('group-play-btn').classList.remove('playing');
-    document.getElementById('group-play-btn').textContent='▶';
+    document.getElementById('group-play-btn').textContent='⏵'; // resume icon
     setGroupStopBtn(true);
   } else {
     // Resume from paused position, or start from beginning
@@ -1299,6 +1299,7 @@ function stopGroup(resetHighlight=true) {
 function stopGroupFull() {
   stopGroup(true);
   groupCurrentIdx=0; groupSectionOffset=0; groupIsPaused=false;
+  document.getElementById('group-play-btn').textContent='▶'; // ensure play icon after stop
 }
 function setGroupStopBtn(visible) {
   const btn=document.getElementById('group-stop-btn');
@@ -1315,15 +1316,16 @@ function toggleSectionPlay(id) {
   if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
   stopGroup(false);
   if(activeSectionId===id&&secIsPlaying){
-    // Pause — remember position within the section
+    // Pause — freeze position, keep playhead where it is
     secStartOffset=secCurrentTime();
     if(secSource){secSource.onended=null;try{secSource.stop();}catch(e){} secSource=null;}
-    secIsPlaying=false; setSectionPlayBtn(id,false);
+    secIsPlaying=false; secIsPaused=true;
+    setSectionPlayBtn(id,'paused');
     document.getElementById(`card-${id}`)?.classList.remove('active-playing');
-    setSectionStopBtn(id,true); // keep stop btn visible while paused
+    setSectionStopBtn(id,true);
   } else {
     if(activeSectionId&&activeSectionId!==id)stopSection(false);
-    activeSectionId=id;
+    secIsPaused=false; activeSectionId=id;
     const resume=secStartOffset>=s.start&&secStartOffset<s.end?secStartOffset:s.start;
     startSection(s,resume);
     setSectionStopBtn(id,true);
@@ -1347,22 +1349,30 @@ function startSection(s,offset) {
   secSource.onended=()=>{
     if(!secIsPlaying||secLoopTarget?.id!==s.id)return;
     if(s.loop){startSection(s,s.start);}
-    else{secIsPlaying=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,false);setSectionStopBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
+    else{secIsPlaying=false;secIsPaused=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,'stopped');setSectionStopBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
   };
 }
 function seekSection(s,t){secStartOffset=Math.max(s.start,Math.min(t,s.end));if(secIsPlaying&&activeSectionId===s.id)startSection(s,secStartOffset);}
 function stopSection(resetOffset=true){
   const prev=activeSectionId;
   if(secSource){secSource.onended=null;try{secSource.stop();}catch(e){} secSource=null;}
-  secIsPlaying=false; if(resetOffset)secStartOffset=0; secLoopTarget=null;
+  secIsPlaying=false; secIsPaused=false;
+  if(resetOffset)secStartOffset=0;
+  secLoopTarget=null;
   if(prev){
-    setSectionPlayBtn(prev,false);
+    setSectionPlayBtn(prev,'stopped');
     setSectionStopBtn(prev,false);
     document.getElementById(`card-${prev}`)?.classList.remove('active-playing');
   }
   activeSectionId=null;
 }
-function setSectionPlayBtn(id,playing){const btn=document.getElementById(`sec-play-${id}`);if(btn){btn.textContent=playing?'⏸':'▶';btn.classList.toggle('is-playing',playing);}}
+function setSectionPlayBtn(id,state){
+  // state: 'playing' | 'paused' | 'stopped' | true (=playing) | false (=stopped)
+  const btn=document.getElementById(`sec-play-${id}`); if(!btn)return;
+  if(state===true||state==='playing'){btn.textContent='⏸';btn.classList.add('is-playing');}
+  else if(state==='paused'){btn.textContent='⏵';btn.classList.remove('is-playing');btn.style.color='var(--color)';btn.style.borderColor='var(--color)';}
+  else{btn.textContent='▶';btn.classList.remove('is-playing');btn.style.color='';btn.style.borderColor='';}
+}
 function toggleSectionLoop(id){
   const s=sections.find(x=>x.id===id);if(!s)return; s.loop=!s.loop;
   const btn=document.getElementById(`sec-loop-${id}`);
@@ -1392,7 +1402,12 @@ function animLoop(){
   let mainT=Math.min(mainCurrentTime(),duration||0);
   if(audioBuffer){
     mainPH.style.display='block'; mainPH.style.left=((mainT/duration)*mainWaveCanvas.offsetWidth)+'px';
-    const dt=secIsPlaying?secCurrentTime():groupIsPlaying?groupCurrentTime():mainT;
+    // Time display: show paused position when paused, otherwise live position
+    const dt = secIsPlaying ? secCurrentTime()
+              : secIsPaused  ? secStartOffset
+              : groupIsPlaying ? groupCurrentTime()
+              : groupIsPaused  ? groupSectionOffset
+              : mainT;
     const dm=Math.floor(duration/60),ds=(duration%60).toFixed(1).padStart(4,'0');
     const cm=Math.floor(dt/60),cs=(dt%60).toFixed(1).padStart(4,'0');
     document.getElementById('time-display').textContent=`${cm}:${cs} / ${dm}:${ds}`;
@@ -1401,8 +1416,10 @@ function animLoop(){
     const ph=document.getElementById(`mini-ph-${s.id}`),wrap=document.getElementById(`mini-wrap-${s.id}`);
     if(!ph||!wrap)return;
     let show=false,t=0;
-    if(activeSectionId===s.id&&secIsPlaying){show=true;t=secCurrentTime();}
-    else if(groupIsPlaying){const ord=getValidGroupSections();if(ord[groupCurrentIdx]?.id===s.id){show=true;t=groupCurrentTime();}}
+    if(activeSectionId===s.id&&secIsPlaying){ show=true; t=secCurrentTime(); }
+    else if(activeSectionId===s.id&&secIsPaused){ show=true; t=secStartOffset; } // freeze at paused pos
+    else if(groupIsPlaying){ const ord=getValidGroupSections(); if(ord[groupCurrentIdx]?.id===s.id){show=true;t=groupCurrentTime();} }
+    else if(groupIsPaused){ const ord=getValidGroupSections(); if(ord[groupCurrentIdx]?.id===s.id){show=true;t=groupSectionOffset;} } // freeze group
     ph.style.display=show?'block':'none';
     if(show)ph.style.left=((Math.min(t,duration)/duration)*wrap.offsetWidth)+'px';
   });
