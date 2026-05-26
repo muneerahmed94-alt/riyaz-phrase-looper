@@ -118,7 +118,8 @@ header h1 {
   background: #f7edd6; border: 1.5px solid var(--color); color: var(--color);
   cursor: pointer; font-size: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-family: inherit; font-weight: 700; letter-spacing: 0.5px;
+  font-family: 'Poppins', sans-serif; font-weight: 700; letter-spacing: 0.5px;
+  font-variant-emoji: text; /* prevent OS emoji substitution */
   box-shadow: 0 1px 3px rgba(90,40,10,0.15), inset 0 1px 0 rgba(255,240,200,0.6);
   transition: all 0.15s;
 }
@@ -1251,7 +1252,7 @@ function toggleGroupPlay() {
     if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
     groupIsPlaying=false; groupIsPaused=true;
     document.getElementById('group-play-btn').classList.remove('playing');
-    document.getElementById('group-play-btn').textContent='⏵'; // resume icon
+    setPlayBtnState(document.getElementById('group-play-btn'), 'paused');
     setGroupStopBtn(true);
   } else {
     // Resume from paused position, or start from beginning
@@ -1263,7 +1264,7 @@ function startGroupFrom(idx, resumeOffset) {
   const ordered=getValidGroupSections(); if(!ordered.length)return;
   groupCurrentIdx=idx%ordered.length; groupIsPlaying=true; groupIsPaused=false;
   document.getElementById('group-play-btn').classList.add('playing');
-  document.getElementById('group-play-btn').textContent='⏸';
+  setPlayBtnState(document.getElementById('group-play-btn'), 'playing');
   setGroupStopBtn(true);
   playGroupSection(ordered, groupCurrentIdx, resumeOffset);
 }
@@ -1290,7 +1291,7 @@ function stopGroup(resetHighlight=true) {
   if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
   groupIsPlaying=false; groupIsPaused=false;
   document.getElementById('group-play-btn').classList.remove('playing');
-  document.getElementById('group-play-btn').textContent='▶';
+  setPlayBtnState(document.getElementById('group-play-btn'), 'stopped');
   document.getElementById('group-progress').textContent='';
   setGroupStopBtn(false);
   if(resetHighlight) sections.forEach(s=>document.getElementById(`card-${s.id}`)?.classList.remove('group-playing'));
@@ -1299,7 +1300,7 @@ function stopGroup(resetHighlight=true) {
 function stopGroupFull() {
   stopGroup(true);
   groupCurrentIdx=0; groupSectionOffset=0; groupIsPaused=false;
-  document.getElementById('group-play-btn').textContent='▶'; // ensure play icon after stop
+  setPlayBtnState(document.getElementById('group-play-btn'), 'stopped');
 }
 function setGroupStopBtn(visible) {
   const btn=document.getElementById('group-stop-btn');
@@ -1366,12 +1367,31 @@ function stopSection(resetOffset=true){
   }
   activeSectionId=null;
 }
-function setSectionPlayBtn(id,state){
-  // state: 'playing' | 'paused' | 'stopped' | true (=playing) | false (=stopped)
-  const btn=document.getElementById(`sec-play-${id}`); if(!btn)return;
-  if(state===true||state==='playing'){btn.textContent='⏸';btn.classList.add('is-playing');}
-  else if(state==='paused'){btn.textContent='⏵';btn.classList.remove('is-playing');btn.style.color='var(--color)';btn.style.borderColor='var(--color)';}
-  else{btn.textContent='▶';btn.classList.remove('is-playing');btn.style.color='';btn.style.borderColor='';}
+function setPlayBtnState(btn, state) {
+  if (!btn) return;
+  // Avoid emoji rendering on macOS: use 'II' for pause, '▶' for play/resume
+  // Distinguish resume from fresh play via button border color
+  if (state === 'playing') {
+    btn.textContent = 'II'; // pause indicator — two bars
+    btn.classList.add('is-playing');
+    btn.style.color = ''; btn.style.borderColor = ''; btn.style.background = '';
+    btn.title = 'Pause';
+  } else if (state === 'paused') {
+    btn.textContent = '▶';
+    btn.classList.remove('is-playing');
+    btn.style.color = 'var(--color,#c9963e)';
+    btn.style.borderColor = 'var(--color,#c9963e)';
+    btn.style.background = '#fdf6e3';
+    btn.title = 'Resume';
+  } else { // stopped
+    btn.textContent = '▶';
+    btn.classList.remove('is-playing');
+    btn.style.color = ''; btn.style.borderColor = ''; btn.style.background = '';
+    btn.title = 'Play';
+  }
+}
+function setSectionPlayBtn(id, state) {
+  setPlayBtnState(document.getElementById(`sec-play-${id}`), state === true ? 'playing' : state === false ? 'stopped' : state);
 }
 function toggleSectionLoop(id){
   const s=sections.find(x=>x.id===id);if(!s)return; s.loop=!s.loop;
