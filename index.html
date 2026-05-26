@@ -124,6 +124,17 @@ header h1 {
 }
 .sec-play-btn:hover { background: var(--color); color: #fff8ec; box-shadow: 0 2px 6px rgba(90,40,10,0.2); }
 .sec-play-btn.is-playing { background: var(--color); color: #fff8ec; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+.sec-stop-btn {
+  width: 22px; height: 22px; border-radius: 3px;
+  background: #f7edd6; border: 1.5px solid #b5995a; color: #7a4a22;
+  cursor: pointer; font-size: 9px; flex-shrink: 0;
+  display: none; align-items: center; justify-content: center;
+  font-family: inherit; font-weight: 700;
+  box-shadow: 0 1px 3px rgba(90,40,10,0.12);
+  transition: all 0.15s;
+}
+.sec-stop-btn:hover { background: #bf4020; color: #fff8ec; border-color: #bf4020; }
+.sec-stop-btn.visible { display: flex; }
 .name-input {
   background: transparent; border: none; color: #3a2510;
   font-size: 13px; font-weight: 600; font-family: 'Lora', Georgia, serif;
@@ -417,6 +428,13 @@ header h1 {
 
 <div id="group-bar">
   <button id="group-play-btn" onclick="toggleGroupPlay()">▶</button>
+  <button id="group-stop-btn" onclick="stopGroupFull()" title="Stop and reset to beginning" style="
+    width:26px;height:26px;border-radius:3px;flex-shrink:0;
+    background:#f7edd6;border:1.5px solid #b5995a;color:#7a4a22;
+    cursor:pointer;font-size:10px;font-weight:700;font-family:inherit;
+    display:none;align-items:center;justify-content:center;
+    box-shadow:0 1px 3px rgba(90,40,10,0.12);transition:all 0.15s;
+  ">■</button>
   <div id="group-info">
     <div id="group-label"></div>
     <div id="group-progress"></div>
@@ -606,7 +624,7 @@ let audioCtx = null, audioBuffer = null, duration = 0, currentFileName = '';
 let mainSource = null, mainIsPlaying = false, mainStartOffset = 0, mainStartAt = 0;
 let activeSectionId = null, secSource = null, secIsPlaying = false;
 let secStartOffset = 0, secStartAt = 0, secLoopTarget = null;
-let groupIds = [], groupIsPlaying = false, groupLoop = true;
+let groupIds = [], groupIsPlaying = false, groupIsPaused = false, groupLoop = true;
 let groupSource = null, groupCurrentIdx = 0, groupStartAt = 0, groupSectionOffset = 0;
 let sections = [];
 const sectionColors = ['#e74c3c','#e67e22','#eab308','#22c55e','#14b8a6','#3b82f6','#a855f7','#ec4899'];
@@ -1036,6 +1054,7 @@ function buildSectionCard(s) {
     <div class="card-header">
       <input type="checkbox" class="sec-checkbox" id="chk-${s.id}" onchange="onCheckboxChange(${s.id}, this.checked)">
       <button class="sec-play-btn" id="sec-play-${s.id}" onclick="toggleSectionPlay(${s.id})">▶</button>
+      <button class="sec-stop-btn" id="sec-stop-${s.id}" onclick="stopSectionById(${s.id})" title="Stop and reset to start">■</button>
       <input class="name-input" value="${s.name}" id="sec-name-${s.id}"
         onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()"
         onkeydown="if(event.key==='Enter'){sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar();saveSession();this.blur();}">
@@ -1226,23 +1245,38 @@ function toggleGroupPlay() {
   if (!audioBuffer) return; ensureCtx();
   if (mainIsPlaying) { mainStartOffset=mainCurrentTime(); if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;} mainIsPlaying=false; setMainPlayBtn(false); }
   stopSection(false);
-  if (groupIsPlaying) { stopGroup(false); } else { startGroupFrom(0); }
+  if (groupIsPlaying) {
+    // Pause — remember current position within the section
+    groupSectionOffset = groupCurrentTime();
+    if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
+    groupIsPlaying=false; groupIsPaused=true;
+    document.getElementById('group-play-btn').classList.remove('playing');
+    document.getElementById('group-play-btn').textContent='▶';
+    setGroupStopBtn(true);
+  } else {
+    // Resume from paused position, or start from beginning
+    groupIsPaused=false;
+    startGroupFrom(groupCurrentIdx, groupSectionOffset);
+  }
 }
-function startGroupFrom(idx) {
+function startGroupFrom(idx, resumeOffset) {
   const ordered=getValidGroupSections(); if(!ordered.length)return;
-  groupCurrentIdx=idx%ordered.length; groupIsPlaying=true;
+  groupCurrentIdx=idx%ordered.length; groupIsPlaying=true; groupIsPaused=false;
   document.getElementById('group-play-btn').classList.add('playing');
   document.getElementById('group-play-btn').textContent='⏸';
-  playGroupSection(ordered, groupCurrentIdx);
+  setGroupStopBtn(true);
+  playGroupSection(ordered, groupCurrentIdx, resumeOffset);
 }
-function playGroupSection(ordered, idx) {
+function playGroupSection(ordered, idx, resumeOffset) {
   const s=ordered[idx]; if(!s)return;
   ordered.forEach((sec,i)=>document.getElementById(`card-${sec.id}`)?.classList.toggle('group-playing',i===idx));
   document.getElementById('group-progress').textContent=`${idx+1} / ${ordered.length}  ·  ${s.name}  (${fmtTime(s.start)} – ${fmtTime(s.end)})`;
   if(groupSource){try{groupSource.stop();}catch(e){} groupSource=null;}
+  // Use resumeOffset only for the first section when resuming; subsequent sections play from their start
+  const startFrom = (resumeOffset !== undefined && resumeOffset > s.start && resumeOffset < s.end) ? resumeOffset : s.start;
   groupSource=audioCtx.createBufferSource(); groupSource.buffer=audioBuffer; groupSource.connect(audioCtx.destination);
-  groupSource.start(0,s.start,s.end-s.start);
-  groupStartAt=audioCtx.currentTime; groupSectionOffset=s.start; groupCurrentIdx=idx;
+  groupSource.start(0, startFrom, s.end-startFrom);
+  groupStartAt=audioCtx.currentTime; groupSectionOffset=startFrom; groupCurrentIdx=idx;
   groupSource.onended=()=>{
     if(!groupIsPlaying)return;
     const next=idx+1;
@@ -1251,13 +1285,24 @@ function playGroupSection(ordered, idx) {
     else{stopGroup(true);}
   };
 }
+// Pause/stop internal — does not reset position (used when switching to section/main play)
 function stopGroup(resetHighlight=true) {
   if(groupSource){groupSource.onended=null;try{groupSource.stop();}catch(e){} groupSource=null;}
-  groupIsPlaying=false;
+  groupIsPlaying=false; groupIsPaused=false;
   document.getElementById('group-play-btn').classList.remove('playing');
   document.getElementById('group-play-btn').textContent='▶';
   document.getElementById('group-progress').textContent='';
+  setGroupStopBtn(false);
   if(resetHighlight) sections.forEach(s=>document.getElementById(`card-${s.id}`)?.classList.remove('group-playing'));
+}
+// Stop button: halt and reset to first section start
+function stopGroupFull() {
+  stopGroup(true);
+  groupCurrentIdx=0; groupSectionOffset=0; groupIsPaused=false;
+}
+function setGroupStopBtn(visible) {
+  const btn=document.getElementById('group-stop-btn');
+  if(btn) btn.style.display = visible ? 'flex' : 'none';
 }
 function groupCurrentTime() { if(!audioCtx||!groupIsPlaying)return groupSectionOffset; return groupSectionOffset+(audioCtx.currentTime-groupStartAt); }
 
@@ -1270,14 +1315,28 @@ function toggleSectionPlay(id) {
   if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
   stopGroup(false);
   if(activeSectionId===id&&secIsPlaying){
-    secStartOffset=secCurrentTime(); if(secSource){try{secSource.stop();}catch(e){} secSource=null;}
-    secIsPlaying=false; setSectionPlayBtn(id,false); document.getElementById(`card-${id}`)?.classList.remove('active-playing');
+    // Pause — remember position within the section
+    secStartOffset=secCurrentTime();
+    if(secSource){secSource.onended=null;try{secSource.stop();}catch(e){} secSource=null;}
+    secIsPlaying=false; setSectionPlayBtn(id,false);
+    document.getElementById(`card-${id}`)?.classList.remove('active-playing');
+    setSectionStopBtn(id,true); // keep stop btn visible while paused
   } else {
     if(activeSectionId&&activeSectionId!==id)stopSection(false);
     activeSectionId=id;
     const resume=secStartOffset>=s.start&&secStartOffset<s.end?secStartOffset:s.start;
     startSection(s,resume);
+    setSectionStopBtn(id,true);
   }
+}
+// Stop button handler — halt and reset to section start
+function stopSectionById(id) {
+  if(activeSectionId===id){ stopSection(true); }
+  else { setSectionStopBtn(id,false); }
+}
+function setSectionStopBtn(id,visible){
+  const btn=document.getElementById(`sec-stop-${id}`);
+  if(btn) btn.classList.toggle('visible',visible);
 }
 function startSection(s,offset) {
   if(secSource){try{secSource.stop();}catch(e){} secSource=null;}
@@ -1288,7 +1347,7 @@ function startSection(s,offset) {
   secSource.onended=()=>{
     if(!secIsPlaying||secLoopTarget?.id!==s.id)return;
     if(s.loop){startSection(s,s.start);}
-    else{secIsPlaying=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
+    else{secIsPlaying=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,false);setSectionStopBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
   };
 }
 function seekSection(s,t){secStartOffset=Math.max(s.start,Math.min(t,s.end));if(secIsPlaying&&activeSectionId===s.id)startSection(s,secStartOffset);}
@@ -1296,7 +1355,11 @@ function stopSection(resetOffset=true){
   const prev=activeSectionId;
   if(secSource){secSource.onended=null;try{secSource.stop();}catch(e){} secSource=null;}
   secIsPlaying=false; if(resetOffset)secStartOffset=0; secLoopTarget=null;
-  if(prev){setSectionPlayBtn(prev,false);document.getElementById(`card-${prev}`)?.classList.remove('active-playing');}
+  if(prev){
+    setSectionPlayBtn(prev,false);
+    setSectionStopBtn(prev,false);
+    document.getElementById(`card-${prev}`)?.classList.remove('active-playing');
+  }
   activeSectionId=null;
 }
 function setSectionPlayBtn(id,playing){const btn=document.getElementById(`sec-play-${id}`);if(btn){btn.textContent=playing?'⏸':'▶';btn.classList.toggle('is-playing',playing);}}
