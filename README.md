@@ -26,7 +26,10 @@ Developed by Muneer Ahmed Shaik.
 
 ### Playback
 - **Main transport** (top bar) — plays the entire track; click anywhere on the top waveform to seek.
-- **Each section** has its own ▶/⏸ button that loops just that section.
+- **Each section** has its own play/pause/stop controls:
+  - `▶` **Play** — starts from the beginning (or last stopped position)
+  - `II` **Pause** — freezes the playhead at the current position; button changes to `▶` with a coloured border indicating "Resume"
+  - `■` **Stop** — appears once playback starts or while paused; resets position to section start and restores the plain `▶`
 - **Loop toggle** per section — switch between looping and single-play.
 - Starting any playback mode automatically stops the others.
 
@@ -35,6 +38,7 @@ Developed by Muneer Ahmed Shaik.
 - A purple **group bar** appears at the bottom showing the sections in chronological order.
 - The group plays through the sections in sequence and loops the whole set (configurable).
 - The currently-playing section is highlighted with a purple glow.
+- The group bar has its own `▶` / `II` / `■` play, pause, and stop controls with the same pause-resume behaviour as individual sections.
 
 ### Saving
 - Click **↓ Save Session** (or `⌘S`) to write the JSON back directly to `sessions/` (Chrome with folder access) or download it as a file.

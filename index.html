@@ -567,6 +567,31 @@ header h1 {
  *   ~ Maybe     .wav  (works in practice despite "maybe" rating)
  *   ✗ Removed   .caf .aiff .aif  (not supported in Chrome)
  *
+ * PLAY / PAUSE / STOP STATE MACHINE
+ * ------------------------------------
+ * Each section and the group bar has three distinct states managed by
+ * setPlayBtnState(btn, state):
+ *
+ *   'playing' → button shows "II" (two bars), filled with section colour.
+ *               Clicking transitions to 'paused'.
+ *   'paused'  → button shows "▶" with coloured border + cream background,
+ *               title="Resume". Playhead freezes at secStartOffset.
+ *               Clicking resumes from the frozen position.
+ *   'stopped' → button shows "▶" in default style, title="Play".
+ *               Playhead resets to section start.
+ *
+ * The ■ stop button appears once playback starts or while paused.
+ * Clicking stop always resets position to section start and shows 'stopped'.
+ *
+ * macOS renders ▶ and ⏸ as coloured emoji by default. We avoid this by:
+ *   1. Using "II" (ASCII) for pause instead of ⏸/⏵
+ *   2. CSS `font-variant-emoji: text` on .sec-play-btn
+ *
+ * Pause state variables:
+ *   secIsPaused     — true when a section is paused (not stopped)
+ *   groupIsPaused   — true when the group is paused
+ * Both are checked in animLoop to freeze the playhead at the paused offset.
+ *
  * SECTION NAME EDITING
  * --------------------
  * Each section card has an inline text input for the name.
