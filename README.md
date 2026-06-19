@@ -26,12 +26,14 @@ Developed by Muneer Ahmed Shaik.
 
 ### Playback
 - **Main transport** (top bar) — plays the entire track; click anywhere on the top waveform to seek.
-- **Each section** has its own play/pause/stop controls:
-  - `▶` **Play** — starts from the beginning (or last stopped position)
-  - `II` **Pause** — freezes the playhead at the current position; button changes to `▶` with a coloured border indicating "Resume"
-  - `■` **Stop** — appears once playback starts or while paused; resets position to section start and restores the plain `▶`
+- **Each section** has two play buttons plus a stop:
+  - `▶|` **Play from main playhead** — same as the top Play button, reachable from the section row. Useful for auditioning the track to decide what range to drag-select.
+  - `▶` **Play selected range** — plays the section's `[start, end]` range. If no range has been drawn yet, it previews the full track so you can hear what's there before dragging.
+  - `II` **Pause** — replaces the active play button while it's playing; freezes the playhead at the current position. Pressing again resumes (button shows `▶` with a coloured border).
+  - `■` **Stop** — appears once range playback starts or while paused; resets position to the section start.
+- **Two playheads** are shown on each section's mini-waveform: a cream line for the section's own playback position and a light-blue line mirroring the main-track position.
 - **Loop toggle** per section — switch between looping and single-play.
-- Starting any playback mode automatically stops the others.
+- Only one playback mode is active at a time: starting main playback stops any section/group playback, and starting a section's range playback pauses the main track (resuming the main track continues from where it was).
 
 ### Group Practice
 - Check the checkbox on two or more sections to create a group.

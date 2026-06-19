@@ -50,7 +50,7 @@ header h1 {
 
 /* ── Main waveform ── */
 #track-section { flex-shrink: 0; background: #2a1508; border-bottom: 2px solid #c9963e; }
-#main-waveform-wrap { position: relative; cursor: pointer; height: 90px; }
+#main-waveform-wrap { position: relative; cursor: pointer; height: 90px; padding-left: 16px; padding-right: 13.5px; box-sizing: border-box; }
 #main-waveform-canvas { display: block; width: 100%; height: 90px; }
 #main-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: rgba(255,240,200,0.9); pointer-events: none; display: none; }
 
@@ -169,6 +169,7 @@ header h1 {
 .mini-wave-canvas { display: block; width: 100%; height: 68px; }
 .mini-overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 .mini-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: rgba(255,240,200,0.85); pointer-events: none; display: none; }
+.mini-main-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: rgba(120,200,255,0.85); pointer-events: none; display: none; }
 .wave-hint { position: absolute; bottom: 4px; right: 8px; font-size: 10px; color: #7a5c30; pointer-events: none; font-style: italic; }
 
 /* ── Group bar ── */
@@ -515,19 +516,33 @@ header h1 {
  *   2. Single section — plays one section's [start, end] range, optionally
  *                       looping (re-creates the SourceNode on each loop to
  *                       avoid the Web Audio loop-glitch at boundary).
+ *                       If the section has no range yet (start===null), the
+ *                       Play button previews the full track instead so the
+ *                       user can hear what to drag-select.
  *   3. Group playback — plays a user-selected set of sections in chronological
  *                       order, advancing automatically, with optional loop-back.
  *
  * Only one mode is active at a time; starting any mode stops the others.
+ * On seek/restart, the previous SourceNode is disconnected and its onended
+ * is cleared before a new node starts, to avoid brief overlap and stale
+ * onended handlers clobbering new state.
+ *
+ * Each section card carries TWO play buttons:
+ *   - "▶|" delegates to toggleMainPlay (main-track playhead controls).
+ *   - "▶"  plays the section's selected range (or full preview if unset).
  *
  * WAVEFORM RENDERING
  * ------------------
  * Peak data is computed once per canvas width from the raw PCM buffer
  * (channel 0) and drawn as min/max bars with a colour gradient.
+ * The main waveform wrap and section cards share the same horizontal
+ * padding (16px left, 13.5px right) so the main playhead aligns x-wise
+ * with each section's mini-waveform.
  * Each section card has:
- *   - mini-wave-canvas   : static waveform (redrawn only on resize)
- *   - mini-overlay-canvas: selection box + handles, redrawn on every drag
- *   - mini-playhead      : absolutely-positioned div animated in rAF loop
+ *   - mini-wave-canvas    : static waveform (redrawn only on resize)
+ *   - mini-overlay-canvas : selection box + handles, redrawn on every drag
+ *   - mini-playhead       : section playback position (cream)
+ *   - mini-main-playhead  : mirrored main-track position (light blue)
  *
  * SECTION INTERACTION (drag modes)
  * ----------------------------------
@@ -1038,8 +1053,9 @@ function drawMainWaveform() {
 }
 document.getElementById('main-waveform-wrap').addEventListener('click', e => {
   if (!audioBuffer) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  seekMain(((e.clientX - rect.left) / rect.width) * duration);
+  const rect = mainWaveCanvas.getBoundingClientRect();
+  const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+  seekMain((x / rect.width) * duration);
 });
 window.addEventListener('resize', () => { drawMainWaveform(); sections.forEach(s => { drawSectionWaveform(s); drawSectionOverlay(s); }); });
 
@@ -1061,7 +1077,7 @@ function toggleMainPlay() {
 }
 function startMain(offset) {
   ensureCtx();
-  if (mainSource) { try { mainSource.stop(); } catch(e){} mainSource = null; }
+  if (mainSource) { mainSource.onended = null; try { mainSource.disconnect(); } catch(e){} try { mainSource.stop(0); } catch(e){} mainSource = null; }
   mainSource = audioCtx.createBufferSource();
   mainSource.buffer = audioBuffer; mainSource.connect(audioCtx.destination);
   mainSource.start(0, offset);
@@ -1072,6 +1088,10 @@ function startMain(offset) {
 function setMainPlayBtn(playing) {
   const btn = document.getElementById('main-play-btn');
   btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.classList.toggle('playing', playing);
+  document.querySelectorAll('[id^="sec-playhead-"]').forEach(b => {
+    b.textContent = playing ? 'II' : '▶|';
+    b.classList.toggle('is-playing', playing);
+  });
 }
 function seekMain(t) { mainStartOffset = Math.max(0, Math.min(t, duration)); if (mainIsPlaying) startMain(mainStartOffset); }
 function mainCurrentTime() { if (!audioCtx || !mainIsPlaying) return mainStartOffset; return mainStartOffset + (audioCtx.currentTime - mainStartAt); }
@@ -1097,7 +1117,8 @@ function buildSectionCard(s) {
   card.innerHTML = `
     <div class="card-header">
       <input type="checkbox" class="sec-checkbox" id="chk-${s.id}" onchange="onCheckboxChange(${s.id}, this.checked)">
-      <button class="sec-play-btn" id="sec-play-${s.id}" onclick="toggleSectionPlay(${s.id})">▶</button>
+      <button class="sec-play-btn" id="sec-playhead-${s.id}" onclick="toggleMainPlay()" title="Play from playhead">▶|</button>
+      <button class="sec-play-btn" id="sec-play-${s.id}" onclick="toggleSectionPlay(${s.id})" title="Play selected range">▶</button>
       <button class="sec-stop-btn" id="sec-stop-${s.id}" onclick="stopSectionById(${s.id})" title="Stop and reset to start">■</button>
       <input class="name-input" value="${s.name}" id="sec-name-${s.id}"
         onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()"
@@ -1109,6 +1130,7 @@ function buildSectionCard(s) {
     <div class="mini-wave-wrap" id="mini-wrap-${s.id}">
       <canvas class="mini-wave-canvas" id="mini-wave-${s.id}"></canvas>
       <canvas class="mini-overlay-canvas" id="mini-overlay-${s.id}"></canvas>
+      <div class="mini-main-playhead" id="mini-mainph-${s.id}"></div>
       <div class="mini-playhead" id="mini-ph-${s.id}"></div>
       <span class="wave-hint" id="wave-hint-${s.id}">drag to select range</span>
     </div>`;
@@ -1385,9 +1407,13 @@ function groupCurrentTime() { if(!audioCtx||!groupIsPlaying)return groupSectionO
 // Single section playback
 // ═══════════════════════════════════════════════════
 function toggleSectionPlay(id) {
-  const s=sections.find(x=>x.id===id); if(!s||s.start===null)return;
+  const s=sections.find(x=>x.id===id); if(!s)return;
   ensureCtx();
-  if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){try{mainSource.stop();}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
+  // Preview mode: no range selected yet — play full track so user can pick where to drag
+  const previewStart = s.start===null ? 0 : s.start;
+  const previewEnd = s.end===null ? (audioBuffer?audioBuffer.duration:0) : s.end;
+  const rangeUnset = s.start===null;
+  if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){mainSource.onended=null;try{mainSource.disconnect();}catch(e){}try{mainSource.stop(0);}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
   stopGroup(false);
   if(activeSectionId===id&&secIsPlaying){
     // Pause — freeze position, keep playhead where it is
@@ -1400,8 +1426,8 @@ function toggleSectionPlay(id) {
   } else {
     if(activeSectionId&&activeSectionId!==id)stopSection(false);
     secIsPaused=false; activeSectionId=id;
-    const resume=secStartOffset>=s.start&&secStartOffset<s.end?secStartOffset:s.start;
-    startSection(s,resume);
+    const resume=!rangeUnset&&secStartOffset>=previewStart&&secStartOffset<previewEnd?secStartOffset:previewStart;
+    startSection(s,resume,rangeUnset?{start:previewStart,end:previewEnd}:null);
     setSectionStopBtn(id,true);
   }
 }
@@ -1414,16 +1440,18 @@ function setSectionStopBtn(id,visible){
   const btn=document.getElementById(`sec-stop-${id}`);
   if(btn) btn.classList.toggle('visible',visible);
 }
-function startSection(s,offset) {
-  if(secSource){try{secSource.stop();}catch(e){} secSource=null;}
+function startSection(s,offset,previewRange) {
+  if(secSource){secSource.onended=null;try{secSource.disconnect();}catch(e){} try{secSource.stop(0);}catch(e){} secSource=null;}
+  const endTime = previewRange ? previewRange.end : s.end;
+  const startTime = previewRange ? previewRange.start : s.start;
   secSource=audioCtx.createBufferSource(); secSource.buffer=audioBuffer; secSource.connect(audioCtx.destination);
-  secSource.start(0,offset,s.end-offset);
+  secSource.start(0,offset,endTime-offset);
   secStartAt=audioCtx.currentTime; secStartOffset=offset; secIsPlaying=true; secLoopTarget=s; activeSectionId=s.id;
   setSectionPlayBtn(s.id,true); document.getElementById(`card-${s.id}`)?.classList.add('active-playing');
   secSource.onended=()=>{
     if(!secIsPlaying||secLoopTarget?.id!==s.id)return;
-    if(s.loop){startSection(s,s.start);}
-    else{secIsPlaying=false;secIsPaused=false;secStartOffset=s.start;secSource=null;setSectionPlayBtn(s.id,'stopped');setSectionStopBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
+    if(s.loop&&!previewRange){startSection(s,s.start);}
+    else{secIsPlaying=false;secIsPaused=false;secStartOffset=startTime;secSource=null;setSectionPlayBtn(s.id,'stopped');setSectionStopBtn(s.id,false);document.getElementById(`card-${s.id}`)?.classList.remove('active-playing');}
   };
 }
 function seekSection(s,t){secStartOffset=Math.max(s.start,Math.min(t,s.end));if(secIsPlaying&&activeSectionId===s.id)startSection(s,secStartOffset);}
@@ -1495,7 +1523,7 @@ function animLoop(){
   const mainPH=document.getElementById('main-playhead');
   let mainT=Math.min(mainCurrentTime(),duration||0);
   if(audioBuffer){
-    mainPH.style.display='block'; mainPH.style.left=((mainT/duration)*mainWaveCanvas.offsetWidth)+'px';
+    mainPH.style.display='block'; mainPH.style.left=(16 + (mainT/duration)*mainWaveCanvas.offsetWidth)+'px';
     // Time display: show paused position when paused, otherwise live position
     const dt = secIsPlaying ? secCurrentTime()
               : secIsPaused  ? secStartOffset
@@ -1516,6 +1544,13 @@ function animLoop(){
     else if(groupIsPaused){ const ord=getValidGroupSections(); if(ord[groupCurrentIdx]?.id===s.id){show=true;t=groupSectionOffset;} } // freeze group
     ph.style.display=show?'block':'none';
     if(show)ph.style.left=((Math.min(t,duration)/duration)*wrap.offsetWidth)+'px';
+    // Main-track playhead mirror — shown whenever main track has a position (playing, paused, or seeked)
+    const mph=document.getElementById(`mini-mainph-${s.id}`);
+    if(mph){
+      const showMain = audioBuffer && (mainIsPlaying || mainStartOffset > 0);
+      mph.style.display = showMain ? 'block' : 'none';
+      if(showMain) mph.style.left=((Math.min(mainT,duration)/duration)*wrap.offsetWidth)+'px';
+    }
   });
   requestAnimationFrame(animLoop);
 }
