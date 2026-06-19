@@ -1209,6 +1209,13 @@ function buildSectionCard(s) {
     document.getElementById(`wave-hint-${s.id}`).style.opacity = s.start !== null ? '0' : '1';
     wrap.style.cursor = 'crosshair';
     hideMagnifier();
+    // If this section is currently playing, adapt to the new bounds:
+    //   - playhead still inside [start,end] → reschedule end (keep playing)
+    //   - playhead outside → restart from new start
+    if (activeSectionId === s.id && secIsPlaying && s.start !== null && s.end !== null) {
+      const t = secCurrentTime();
+      startSection(s, (t >= s.start && t < s.end) ? t : s.start);
+    }
   };
   wrap.addEventListener('mouseup', fin);
   wrap.addEventListener('mouseleave', e => { fin(e); wrap.style.cursor = 'crosshair'; hideMagnifier(); });
