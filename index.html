@@ -1075,6 +1075,10 @@ function toggleMainPlay() {
     mainIsPlaying = false; setMainPlayBtn(false);
   } else { startMain(mainStartOffset); }
 }
+// startMain — schedules the main-track BufferSource from `offset`.
+// Disconnects + clears onended on the previous source before starting to
+// avoid brief audio overlap on seek and to prevent the old onended from
+// resetting state that now belongs to the new source.
 function startMain(offset) {
   ensureCtx();
   if (mainSource) { mainSource.onended = null; try { mainSource.disconnect(); } catch(e){} try { mainSource.stop(0); } catch(e){} mainSource = null; }
@@ -1406,13 +1410,18 @@ function groupCurrentTime() { if(!audioCtx||!groupIsPlaying)return groupSectionO
 // ═══════════════════════════════════════════════════
 // Single section playback
 // ═══════════════════════════════════════════════════
+// toggleSectionPlay — handler for the section's "▶ Play selected range" button.
+// If the section has no [start,end] yet, plays the whole track as a preview
+// (no looping in preview mode — see startSection).
+// Pauses main playback rather than stopping it: mainStartOffset is preserved
+// so pressing main Play again resumes from where it left off.
 function toggleSectionPlay(id) {
   const s=sections.find(x=>x.id===id); if(!s)return;
   ensureCtx();
-  // Preview mode: no range selected yet — play full track so user can pick where to drag
   const previewStart = s.start===null ? 0 : s.start;
   const previewEnd = s.end===null ? (audioBuffer?audioBuffer.duration:0) : s.end;
   const rangeUnset = s.start===null;
+  // Pause main (preserve offset) — full disconnect + onended clear avoids overlap
   if(mainIsPlaying){mainStartOffset=mainCurrentTime();if(mainSource){mainSource.onended=null;try{mainSource.disconnect();}catch(e){}try{mainSource.stop(0);}catch(e){} mainSource=null;}mainIsPlaying=false;setMainPlayBtn(false);}
   stopGroup(false);
   if(activeSectionId===id&&secIsPlaying){
@@ -1440,6 +1449,12 @@ function setSectionStopBtn(id,visible){
   const btn=document.getElementById(`sec-stop-${id}`);
   if(btn) btn.classList.toggle('visible',visible);
 }
+// startSection — schedules the section's BufferSource.
+// previewRange (optional {start,end}): when set, plays the supplied range
+// without looping (used when the section has no user-drawn range yet).
+// When omitted, uses s.start/s.end and honours s.loop.
+// Always disconnects + clears onended on the previous source first to prevent
+// stale handlers from clobbering new state on rapid re-trigger / seek.
 function startSection(s,offset,previewRange) {
   if(secSource){secSource.onended=null;try{secSource.disconnect();}catch(e){} try{secSource.stop(0);}catch(e){} secSource=null;}
   const endTime = previewRange ? previewRange.end : s.end;
