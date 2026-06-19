@@ -1214,7 +1214,15 @@ function buildSectionCard(s) {
     //   - playhead outside → restart from new start
     if (activeSectionId === s.id && secIsPlaying && s.start !== null && s.end !== null) {
       const t = secCurrentTime();
-      startSection(s, (t >= s.start && t < s.end) ? t : s.start);
+      let resumeAt;
+      if (mode === 'left') {
+        // Jump to ~3s before end, or section start if that's before s.start
+        resumeAt = Math.max(s.start, s.end - 3);
+      } else {
+        // Right resize / move: keep playing if still in range, else restart
+        resumeAt = (t >= s.start && t < s.end) ? t : s.start;
+      }
+      startSection(s, resumeAt);
     }
   };
   wrap.addEventListener('mouseup', fin);
