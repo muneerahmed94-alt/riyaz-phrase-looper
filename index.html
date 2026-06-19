@@ -563,8 +563,11 @@ header h1 {
  * (#magnifier) appears above the cursor showing a 5× zoomed strip of
  * the waveform (drawn via drawImage from the section's mini-wave-canvas)
  * centred on the drag position. A centre hairline and live time label
- * help nail the exact cut point. The tooltip is hidden on mouseup /
- * mouseleave. Constants: MAG_W=200px, MAG_H=60px, MAG_ZOOM=5.
+ * help nail the exact cut point. If the main-track playhead falls within
+ * the zoomed window, it is drawn as a light-blue line that animates in
+ * sync with playback (animLoop refreshes the magnifier every frame while
+ * an edge is being dragged). The tooltip is hidden on mouseup / mouseleave.
+ * Constants: MAG_W=200px, MAG_H=60px, MAG_ZOOM=5.
  *
  * VISUAL THEME
  * ------------
@@ -1549,6 +1552,14 @@ function animLoop(){
     const cm=Math.floor(dt/60),cs=(dt%60).toFixed(1).padStart(4,'0');
     document.getElementById('time-display').textContent=`${cm}:${cs} / ${dm}:${ds}`;
   }
+  // Refresh magnifier so the main-track playhead animates while resizing
+  if (magActive.id !== null) {
+    const st = dragState[magActive.id];
+    if (st && st.dragging && (st.mode === 'left' || st.mode === 'right')) {
+      const sObj = sections.find(x => x.id === magActive.id);
+      if (sObj) updateMagnifier(sObj, magActive.clientX);
+    }
+  }
   sections.forEach(s=>{
     const ph=document.getElementById(`mini-ph-${s.id}`),wrap=document.getElementById(`mini-wrap-${s.id}`);
     if(!ph||!wrap)return;
@@ -1589,6 +1600,7 @@ document.addEventListener('keydown',e=>{
 // Shows a 5× zoomed strip of the waveform centred on the drag position
 // ═══════════════════════════════════════════════════
 const MAG_W = 200, MAG_H = 60, MAG_ZOOM = 5;
+const magActive = { id: null, clientX: 0 };
 
 function updateMagnifier(s, clientX) {
   if (!audioBuffer || !dragState[s.id].dragging) return;
@@ -1596,6 +1608,7 @@ function updateMagnifier(s, clientX) {
 
   // Only show for edge drags (not whole-section move, not new selection)
   if (mode !== 'left' && mode !== 'right') { hideMagnifier(); return; }
+  magActive.id = s.id; magActive.clientX = clientX;
 
   const waveCanvas = document.getElementById(`mini-wave-${s.id}`);
   if (!waveCanvas) return;
@@ -1628,6 +1641,18 @@ function updateMagnifier(s, clientX) {
   mCtx.strokeStyle = 'rgba(201,150,62,0.5)'; mCtx.lineWidth = 1;
   mCtx.beginPath(); mCtx.moveTo(MAG_W/2, 0); mCtx.lineTo(MAG_W/2, MAG_H); mCtx.stroke();
 
+  // Main-track playhead within magnifier view (if visible)
+  const showMain = audioBuffer && (mainIsPlaying || mainStartOffset > 0);
+  if (showMain) {
+    const mainT = Math.min(mainCurrentTime(), duration || 0);
+    const mainSrcPx = (mainT / duration) * waveCanvas.width;
+    const relPx = (mainSrcPx - srcX0) * MAG_ZOOM;
+    if (relPx >= 0 && relPx <= MAG_W) {
+      mCtx.strokeStyle = 'rgba(120,200,255,0.9)'; mCtx.lineWidth = 2;
+      mCtx.beginPath(); mCtx.moveTo(relPx, 0); mCtx.lineTo(relPx, MAG_H); mCtx.stroke();
+    }
+  }
+
   // Time label
   document.getElementById('mag-label').textContent = fmtTime(focusTime);
 
@@ -1647,6 +1672,7 @@ function updateMagnifier(s, clientX) {
 
 function hideMagnifier() {
   document.getElementById('magnifier').style.display = 'none';
+  magActive.id = null;
 }
 
 // Boot
