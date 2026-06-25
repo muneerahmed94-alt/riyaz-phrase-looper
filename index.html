@@ -699,7 +699,19 @@ let selectedSession = null;      // { label, data, fileHandle }
 // ═══════════════════════════════════════════════════
 // Start screen init — auto-detect project folder
 // ═══════════════════════════════════════════════════
+// True when the app is served over http(s) (e.g. GitHub Pages). In that mode
+// we can fetch sessions/audio directly via HTTP, so the folder picker is
+// unnecessary — and Save falls back to a JSON download.
+const HTTP_MODE = location.protocol === 'http:' || location.protocol === 'https:';
+
 async function initStartScreen() {
+  // On hosted/HTTP deploys: skip the folder picker entirely, fetch the
+  // sessions/index.json manifest and list sessions over HTTP.
+  if (HTTP_MODE) {
+    document.getElementById('grant-area').classList.add('hidden');
+    await refreshSessionsListHttp();
+    return;
+  }
   // grant-area is always visible by default — only hide it once we confirm live access
   if (!window.showDirectoryPicker) {
     document.getElementById('grant-btn').textContent = '📁 Select sessions folder';
@@ -793,6 +805,53 @@ async function refreshSessionsList() {
   });
 }
 
+// HTTP-mode equivalent of refreshSessionsList. Reads a manifest at
+// sessions/index.json (needed because static hosts have no directory listing)
+// and fetches each session JSON over HTTP.
+async function refreshSessionsListHttp() {
+  const list = document.getElementById('sessions-list');
+  list.replaceChildren();
+  let names = [];
+  try {
+    const r = await fetch('sessions/index.json', { cache: 'no-cache' });
+    if (r.ok) names = await r.json();
+  } catch {}
+  const entries = [];
+  for (const name of names) {
+    try {
+      const r = await fetch('sessions/' + name, { cache: 'no-cache' });
+      if (!r.ok) continue;
+      const data = await r.json();
+      entries.push({ label: name.replace(/\.json$/, ''), data, httpName: name });
+    } catch {}
+  }
+  entries.sort((a, b) => a.label.localeCompare(b.label));
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.id = 'sessions-empty';
+    empty.style.cssText = 'padding:20px 8px;text-align:center;color:#444;font-size:13px;line-height:1.7';
+    const strong = document.createElement('strong'); strong.textContent = 'No sessions yet.';
+    empty.append(strong, document.createElement('br'), 'Drop an audio file to create one.');
+    list.appendChild(empty);
+    return;
+  }
+  entries.forEach(entry => {
+    const secs = entry.data.sections || [];
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    const info = document.createElement('div'); info.className = 'session-card-info';
+    const nm = document.createElement('div'); nm.className = 'session-card-name'; nm.textContent = entry.label;
+    const meta = document.createElement('div'); meta.className = 'session-card-meta';
+    meta.textContent = `${entry.data.fileName || ''} · ${secs.length} section${secs.length !== 1 ? 's' : ''}`;
+    const dots = document.createElement('div'); dots.className = 'session-card-dots';
+    secs.forEach(s => { const d = document.createElement('div'); d.className = 'session-dot'; d.style.background = s.color; dots.appendChild(d); });
+    info.append(nm, meta, dots);
+    card.appendChild(info);
+    card.addEventListener('click', () => onSessionCardClick(card, entry));
+    list.appendChild(card);
+  });
+}
+
 async function onSessionCardClick(cardEl, entry) {
   document.querySelectorAll('.session-card').forEach(c => c.classList.remove('active'));
   cardEl.classList.add('active');
@@ -817,6 +876,20 @@ async function resolveSessionAudio(entry, autoOpen) {
 
   const audioRelPath = entry.data.audioPath;
   const audioFileName = entry.data.fileName || audioRelPath || 'unknown';
+
+  // HTTP mode: fetch the audio file directly and wrap it as a File so the
+  // rest of the pipeline (loadAudioFile) works unchanged.
+  if (HTTP_MODE && audioRelPath) {
+    try {
+      const r = await fetch(audioRelPath, { cache: 'no-cache' });
+      if (r.ok) {
+        const blob = await r.blob();
+        entry._audioFile = new File([blob], audioFileName, { type: blob.type });
+        if (autoOpen) { openSelectedSession(); return; }
+        return;
+      }
+    } catch {}
+  }
 
   // Resolve audioPath relative to project root (audio/ is a sibling of index.html)
   if (projectDirHandle && audioRelPath) {

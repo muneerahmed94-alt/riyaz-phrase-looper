@@ -1,0 +1,54 @@
+{
+  "fileName": "Yaman-Intro.m4a",
+  "audioPath": "audio/Yaman-Intro.m4a",
+  "sections": [
+    {
+      "id": 1779628354161,
+      "name": "Section 1",
+      "start": 8.24,
+      "end": 19.37,
+      "color": "#e74c3c",
+      "loop": true
+    },
+    {
+      "id": 1779628372403,
+      "name": "Section 2",
+      "start": 19.25,
+      "end": 30.72,
+      "color": "#e67e22",
+      "loop": true
+    },
+    {
+      "id": 1779628388479,
+      "name": "Section 3",
+      "start": 30.61,
+      "end": 43.52,
+      "color": "#eab308",
+      "loop": true
+    },
+    {
+      "id": 1779628404228,
+      "name": "Section 4",
+      "start": 43.63,
+      "end": 58.99,
+      "color": "#22c55e",
+      "loop": true
+    },
+    {
+      "id": 1779628419487,
+      "name": "Section 5",
+      "start": 59.54,
+      "end": 74.57,
+      "color": "#14b8a6",
+      "loop": true
+    },
+    {
+      "id": 1779628431646,
+      "name": "Section 6",
+      "start": 74.35,
+      "end": 88.92,
+      "color": "#3b82f6",
+      "loop": true
+    }
+  ]
+}

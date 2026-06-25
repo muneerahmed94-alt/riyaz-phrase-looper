@@ -1,0 +1,54 @@
+{
+  "fileName": "Gulon me rang - Pt Ramanuj Dasgupta.opus",
+  "audioPath": "audio/Gulon me rang - Pt Ramanuj Dasgupta.opus",
+  "sections": [
+    {
+      "id": 1781864659168,
+      "name": "Rhythm",
+      "start": 137.59,
+      "end": 149.61,
+      "color": "#e74c3c",
+      "loop": true
+    },
+    {
+      "id": 1781865161487,
+      "name": "Gulon mein rang kahan hai tere badan ki tarah, Tera badan hai sitaron ki anjuman ki tarah",
+      "start": 143.72,
+      "end": 190.13,
+      "color": "#e67e22",
+      "loop": true
+    },
+    {
+      "id": 1781871892518,
+      "name": "Yeh hai fareb-e-nazar ya bahaar ka mausam, Saja hua hai gulistan mera dulhan ki tarah",
+      "start": 195.55,
+      "end": 242.91,
+      "color": "#eab308",
+      "loop": true
+    },
+    {
+      "id": 1781873295771,
+      "name": "Woh zindagi to nahi zindagi ka maatam hai, Jo zindagi ho watan hi mein be-watan ki tarah",
+      "start": 263.41,
+      "end": 308.17,
+      "color": "#22c55e",
+      "loop": true
+    },
+    {
+      "id": 1781873488462,
+      "name": "Jahan bhi main ne qadam apna rakh diya Mukhtar, Mehak uthe wahin kaante bhi nastaran ki tarah",
+      "start": 331.03,
+      "end": 371.32,
+      "color": "#14b8a6",
+      "loop": true
+    },
+    {
+      "id": 1782307791427,
+      "name": "Section 6",
+      "start": 143.29,
+      "end": 154.09,
+      "color": "#3b82f6",
+      "loop": true
+    }
+  ]
+}

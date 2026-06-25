@@ -11,7 +11,8 @@ Developed by Muneer Ahmed Shaik.
 
 ### Sessions
 - Sessions are stored as plain JSON files in the `sessions/` folder alongside the app.
-- On first load, click **Grant access to riyaz-phrase-looper** once to let the browser read the folder. The permission is remembered across page loads (Chrome only).
+- **Hosted (GitHub Pages):** sessions and audio are fetched directly over HTTP — no folder picker. The app reads `sessions/index.json` (a manifest of session filenames) to populate the list. Saving falls back to a JSON download.
+- **Local (`file://`):** click **Grant access to riyaz-phrase-looper** once to let the browser read the folder. The permission is remembered across page loads (Chrome only).
 - Click any session card to instantly load the associated audio and all its sections — no extra steps.
 - If the audio file has moved or been renamed, the app shows an error with a **Locate audio file…** button that updates the session JSON for next time.
 
