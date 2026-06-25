@@ -33,6 +33,7 @@ Developed by Muneer Ahmed Shaik.
   - `■` **Stop** — appears once range playback starts or while paused; resets position to the section start.
 - **Two playheads** are shown on each section's mini-waveform: a cream line for the section's own playback position and a light-blue line mirroring the main-track position.
 - **Loop toggle** per section — switch between looping and single-play.
+- **⬇ Download** per section — exports the selected `[start, end]` range as a WAV file named `<audio>__<section>.wav`.
 - Only one playback mode is active at a time: starting main playback stops any section/group playback, and starting a section's range playback pauses the main track (resuming the main track continues from where it was).
 
 ### Group Practice
