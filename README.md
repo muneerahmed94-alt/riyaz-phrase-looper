@@ -23,6 +23,7 @@ Developed by Muneer Ahmed Shaik.
 - **Resize** by dragging the left or right edge handle (cursor changes to `↔` near edges). A **magnifier tooltip** appears above the cursor showing a 5× zoomed strip of the waveform around the edge, with a live time label — making it easy to nail the exact cut point.
 - **Move** the whole selection by dragging anywhere inside it (cursor changes to `✋`).
 - During any drag the selection overlay becomes transparent so the waveform underneath stays readable.
+- **Edit start/end times directly** — the range shown in each section's header (`2:37.4 – 2:45.4`) is editable. Click either time, type a precise value, and press `Enter` (or click away) to apply. Accepts `m:ss.s` (e.g. `2:45.4`) or plain seconds (e.g. `165.4`). Handy for fine adjustments that are awkward to make by dragging. Invalid entries revert; values are clamped to the track and kept in order. Edits redraw the selection, re-schedule playback if the section is playing, and auto-save.
 - Sections are colour-coded and the selection is always visible on the waveform.
 
 ### Playback
@@ -116,7 +117,7 @@ riyaz-phrase-looper/
 | `Space` | Play / Pause main track |
 | `Escape` | Stop all playback |
 | `⌘S` / `Ctrl+S` | Save session |
-| `Enter` | (in section name) Rename + auto-save |
+| `Enter` | (in section name) Rename + auto-save; (in start/end time) apply edited time + auto-save |
 
 ---
 

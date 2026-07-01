@@ -153,6 +153,16 @@ header h1 {
 }
 .name-input:focus { border-bottom: 1.5px solid var(--color); }
 .range-label { font-size: 11px; color: #8d6e63; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.range-input {
+  width: 52px; text-align: center; background: transparent;
+  border: 1px solid transparent; border-radius: 4px; color: #5a3a20;
+  font-size: 11px; font-family: inherit; font-variant-numeric: tabular-nums;
+  padding: 1px 2px; outline: none; transition: all 0.12s;
+}
+.range-input:hover { border-color: #cbb886; background: #fbf4e3; }
+.range-input:focus { border-color: var(--color); background: #fff; }
+.range-dash { font-size: 11px; color: #8d6e63; }
+.range-input.hidden, .range-dash.hidden { display: none; }
 .loop-btn {
   background: #f2e8d0; border: 1px solid #b5995a; color: #7a4a22;
   padding: 2px 7px; border-radius: 4px; cursor: pointer;
@@ -1203,7 +1213,17 @@ function buildSectionCard(s) {
       <input class="name-input" value="${s.name}" id="sec-name-${s.id}"
         onchange="sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar()"
         onkeydown="if(event.key==='Enter'){sections.find(x=>x.id===${s.id}).name=this.value;updateGroupBar();saveSession();this.blur();}">
-      <span class="range-label" id="sec-range-${s.id}">drag waveform to set range</span>
+      <!-- Editable start/end times for fine adjustment (see setSectionTime). Hidden until a range is set; falls back to the range-label hint. -->
+      <input class="range-input start" id="sec-start-${s.id}" title="Start time (m:ss.s) — click to edit"
+        onfocus="this.select()"
+        onchange="setSectionTime(${s.id},'start',this.value)"
+        onkeydown="if(event.key==='Enter'){setSectionTime(${s.id},'start',this.value);this.blur();}">
+      <span class="range-dash" id="sec-dash-${s.id}">–</span>
+      <input class="range-input end" id="sec-end-${s.id}" title="End time (m:ss.s) — click to edit"
+        onfocus="this.select()"
+        onchange="setSectionTime(${s.id},'end',this.value)"
+        onkeydown="if(event.key==='Enter'){setSectionTime(${s.id},'end',this.value);this.blur();}">
+      <span class="range-label" id="sec-range-${s.id}"></span>
       <button class="loop-btn on" id="sec-loop-${s.id}" onclick="toggleSectionLoop(${s.id})">↺ Loop</button>
       <button class="loop-btn" onclick="downloadSection(${s.id})" title="Download section as WAV">⬇ Download</button>
       <button class="del-btn" onclick="deleteSection(${s.id})">×</button>
@@ -1360,8 +1380,56 @@ function drawSectionOverlay(s, isDragging) {
   if(x2-x1>50){const el=fmtTime(s.end); ctx.fillText(el,Math.min(w-el.length*6-4,x2-el.length*6-2),4);}
 }
 function updateRangeLabel(s) {
-  const el = document.getElementById(`sec-range-${s.id}`);
-  if (el) el.textContent = s.start!==null&&s.end!==null ? `${fmtTime(s.start)} – ${fmtTime(s.end)}` : 'drag waveform to set range';
+  const label = document.getElementById(`sec-range-${s.id}`);
+  const startIn = document.getElementById(`sec-start-${s.id}`);
+  const endIn = document.getElementById(`sec-end-${s.id}`);
+  const dash = document.getElementById(`sec-dash-${s.id}`);
+  const hasRange = s.start !== null && s.end !== null;
+  if (label) label.textContent = hasRange ? '' : 'drag waveform to set range';
+  [startIn, endIn, dash].forEach(el => el && el.classList.toggle('hidden', !hasRange));
+  if (hasRange) {
+    // Don't clobber a field the user is actively editing
+    if (startIn && document.activeElement !== startIn) startIn.value = fmtTime(s.start);
+    if (endIn && document.activeElement !== endIn) endIn.value = fmtTime(s.end);
+  }
+}
+// Parse "m:ss.s", "ss.s", or plain seconds into seconds. Returns null if invalid.
+function parseTime(str) {
+  if (str == null) return null;
+  str = String(str).trim();
+  if (!str) return null;
+  let sec;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    if (parts.length !== 2) return null;
+    const m = parseFloat(parts[0]), s = parseFloat(parts[1]);
+    if (!isFinite(m) || !isFinite(s)) return null;
+    sec = m * 60 + s;
+  } else {
+    sec = parseFloat(str);
+    if (!isFinite(sec)) return null;
+  }
+  return sec < 0 ? null : sec;
+}
+function setSectionTime(id, which, raw) {
+  const s = sections.find(x => x.id === id); if (!s) return;
+  const t = parseTime(raw);
+  if (t === null) { updateRangeLabel(s); return; } // revert on bad input
+  const max = duration || Infinity;
+  if (which === 'start') {
+    s.start = Math.max(0, Math.min(t, (s.end !== null ? s.end - 0.05 : max)));
+  } else {
+    s.end = Math.min(max, Math.max(t, (s.start !== null ? s.start + 0.05 : 0)));
+  }
+  drawSectionOverlay(s, false);
+  updateRangeLabel(s);
+  updateGroupBar();
+  document.getElementById(`wave-hint-${s.id}`).style.opacity = s.start !== null ? '0' : '1';
+  if (activeSectionId === s.id && secIsPlaying && s.start !== null && s.end !== null) {
+    const cur = secCurrentTime();
+    startSection(s, (cur >= s.start && cur < s.end) ? cur : s.start);
+  }
+  saveSession();
 }
 
 // ═══════════════════════════════════════════════════
